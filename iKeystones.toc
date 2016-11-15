@@ -1,0 +1,10 @@
+## Interface: 70100
+## Title: iKeystones
+## Notes: Tracks your keystones
+## Author: Ironi
+## Version: 1.0
+## DefaultState: enabled
+
+## SavedVariables: iKeystonesDB
+
+iKeystones.lua
