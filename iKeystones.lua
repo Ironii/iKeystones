@@ -8,6 +8,13 @@ addon:RegisterEvent('PLAYER_LOGIN')
 addon:RegisterEvent('BAG_UPDATE')
 local iKS = {}
 local player = UnitGUID('player')
+function iKS:weeklyReset()
+	for guid,data in pairs(iKeystonesDB) do
+		iKeystonesDB[guid].key = {}
+		iKeystonesDB[guid].maxCompleted = 0
+	end
+	iKS:scanInventory()
+end
 function iKS:createPlayer()
 	if player and not iKeystonesDB[player] then
 		if UnitLevel('player') >= 110 then
@@ -37,6 +44,9 @@ function iKS:scanCharacterMaps()
 		if level and level > maxCompleted then
 			maxCompleted = level
 		end
+	end
+	if iKeystonesDB[player].maxCompleted and iKeystonesDB[player].maxCompleted > maxCompleted then
+		iKS:weeklyReset()
 	end
 	iKeystonesDB[player].maxCompleted = maxCompleted
 end
@@ -68,13 +78,28 @@ function iKS:scanInventory()
 	end
 	
 end
+function iKS:getItemColor(level, depleted)
+	if depleted == 4063232 then
+		return '|cff9d9d9d|Hitem'
+	elseif level < 4 then	-- Epic
+		return '|cffa335ee|Hitem'
+	elseif level < 7 then	-- Green
+		return '|cff3fbf3f|Hitem'
+	elseif level < 10 then	-- Yellow
+		return '|cffffd100|Hitem'
+	elseif level < 15 then	-- orange
+		return '|cffff7f3f|Hitem'
+	else	-- Red
+		return '|cffff1919|Hitem'
+	end	
+end
 function iKS:printKeystones()
 	local allCharacters = {}
 	for guid,data in pairs(iKeystonesDB) do
 		local itemLink = ''
 		if data.key.map then
 			local itemLinkTable = {
-				[1] = (data.key.depleted == 8257536 and '|cffa335ee|Hitem') or '|cff9d9d9d|Hitem',
+				[1] = iKS:getItemColor(data.key.level, data.key.depleted),
 				[2] = 138019,
 				[10] = 110,
 				[11] = 250,
@@ -94,7 +119,7 @@ function iKS:printKeystones()
 			end
 			itemLink = table.concat(itemLinkTable, ':')
 		else
-			itemLink = 'NONE'
+			itemLink = UNKNOWN
 		end
 		local str = ''
 		if data.server == GetRealmName() then
