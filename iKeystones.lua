@@ -96,7 +96,12 @@ function iKS:printKeystones()
 		else
 			itemLink = 'NONE'
 		end
-		local str = string.format('|c%s%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, itemLink, data.maxCompleted)
+		local str = ''
+		if data.server == GetRealmName() then
+			str = string.format('|c%s%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, itemLink, (data.maxCompleted >= 12 and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
+		else
+			str = string.format('|c%s%s-%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, data.server,itemLink,(data.maxCompleted >= 12 and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
+		end
 		print(str)
 	end
 end
