@@ -148,6 +148,40 @@ function addon:CHALLENGE_MODE_MAPS_UPDATE()
 	iKS:scanCharacterMaps()
 end
 
+local function chatFiltering(self, event, msg, ...)
+	local linkStart = msg:find('Hitem:138019')
+	if linkStart then
+		local preLink = msg:sub(1, linkStart-12)
+		local linkStuff = msg:sub(math.max(linkStart-11, 0))
+		local tempTable = {strsplit(':', linkStuff)}
+		tempTable[1] = iKS:getItemColor(tonumber(tempTable[16]), tonumber(tempTable[12]))
+		for k,v in pairs(tempTable) do
+			if v and v:match('%[.-%]') then
+				tempTable[k] = string.gsub(tempTable[k], '%[.-%]', string.format('[%s (%s)]',GetRealZoneText(tonumber(tempTable[15])), tonumber(tempTable[16])), 1)
+				break
+			end
+		end
+		return false, preLink..table.concat(tempTable, ':'), ...
+	end
+end
+
+ChatFrame_AddMessageEventFilter("CHAT_MSG_SAY", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_YELL", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD_LEADER", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_OFFICER", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_INSTANCE", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_INSTANCE_LEADER", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_PARTY", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_PARTY_LEADER", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_RAID", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_RAID_LEADER", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER_INFORM", chatFiltering)
+
 SLASH_IKEYSTONES1 = "/ikeystones"
 SLASH_IKEYSTONES2 = "/iks"
 SlashCmdList["IKEYSTONES"] = function(msg)
