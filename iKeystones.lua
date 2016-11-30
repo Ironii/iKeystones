@@ -181,6 +181,7 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER_INFORM", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_LOOT", chatFiltering)
 
 SLASH_IKEYSTONES1 = "/ikeystones"
 SLASH_IKEYSTONES2 = "/iks"
