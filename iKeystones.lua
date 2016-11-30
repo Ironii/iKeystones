@@ -8,6 +8,7 @@ addon:RegisterEvent('PLAYER_LOGIN')
 addon:RegisterEvent('BAG_UPDATE')
 local iKS = {}
 local player = UnitGUID('player')
+
 function iKS:weeklyReset()
 	for guid,data in pairs(iKeystonesDB) do
 		iKeystonesDB[guid].key = {}
@@ -62,9 +63,10 @@ function iKS:scanInventory()
 				--tempKeyTable = {strsplit(':', itemLink)}
 				--iKeystoneT = tempKeyTable
 				-- end-of-debug
+				local keyLevel = tonumber(tempTable[16])
 				iKeystonesDB[player].key = {
 					map = tonumber(tempTable[15]),
-					level = tonumber(tempTable[16]),
+					level = keyLevel,
 					--depleted = (tonumber(tempTable[12]) == 4063232 and true) or nil, -- 4063232 == depleted, 8257536 active
 					depleted = tonumber(tempTable[12]),
 					affix4 = tonumber(tempTable[17]),
@@ -72,6 +74,30 @@ function iKS:scanInventory()
 					affix10 = tonumber(tempTable[19]),
 					arg20 = tonumber(tempTable[20]), -- some kind of depleted check ??
 				}
+				if iKS.keyLevel and iKS.keyLevel < keyLevel then
+					local itemLinkTable = {
+						[1] = iKS:getItemColor(iKeystonesDB[player].key.level, iKeystonesDB[player].key.depleted),
+						[2] = 138019,
+						[10] = 110,
+						[11] = 250,
+						[12] = iKeystonesDB[player].key.depleted,
+						[15] = iKeystonesDB[player].key.map,
+						[16] = iKeystonesDB[player].key.level,
+						[17] = iKeystonesDB[player].key.affix4,
+						[18] = iKeystonesDB[player].key.affix7,
+						[19] = iKeystonesDB[player].key.affix10,
+						[20] = iKeystonesDB[player].key.arg20,
+						[23] = string.format('|h[%s (%s)]|h|r',GetRealZoneText(iKeystonesDB[player].key.map), iKeystonesDB[player].key.level),
+					}
+					for i = 1, 22 do
+						if not itemLinkTable[i] then
+							itemLinkTable[i] = ''
+						end
+					end
+					local itemLinkToPrint = table.concat(itemLinkTable, ':')
+					print('iKS: New keystone - ' .. itemLinkToPrint)
+				end
+				iKS.keyLevel = keyLevel
 				return
 			end
 		end
@@ -191,6 +217,10 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 		iKeystonesDB = {}
 		iKS:scanInventory()
 		iKS:scanCharacterMaps()
+	elseif msg and msg == 'start' then
+		if C_ChallengeMode.GetSlottedKeystoneInfo() then
+			C_ChallengeMode.StartChallengeMode()
+		end
 	end
 	iKS:printKeystones()
 end
