@@ -6,6 +6,7 @@ addon:RegisterEvent('ADDON_LOADED')
 addon:RegisterEvent('CHALLENGE_MODE_MAPS_UPDATE')
 addon:RegisterEvent('PLAYER_LOGIN')
 addon:RegisterEvent('BAG_UPDATE')
+addon:RegisterEvent('CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN')
 local iKS = {}
 local player = UnitGUID('player')
 
@@ -51,12 +52,15 @@ function iKS:scanCharacterMaps()
 	end
 	iKeystonesDB[player].maxCompleted = maxCompleted
 end
-function iKS:scanInventory()
+function iKS:scanInventory(requestingSlots)
 	if not iKS:createPlayer() then return end
 	for bagID = 0, 4 do
 		for invID = 1, GetContainerNumSlots(bagID) do
 			local itemID = GetContainerItemID(bagID, invID)
 			if itemID and itemID == 138019 then
+				if requestingSlots then
+					return bagID, invID
+				end
 				local itemLink = GetContainerItemLink(bagID, invID)
 				local tempTable = {strsplit(':', itemLink)}
 				-- debug
@@ -98,6 +102,7 @@ function iKS:scanInventory()
 					print('iKS: New keystone - ' .. itemLinkToPrint)
 				end
 				iKS.keyLevel = keyLevel
+				iKS.mapID = iKeystonesDB[player].key.map
 				return
 			end
 		end
@@ -172,6 +177,18 @@ function addon:BAG_UPDATE()
 end
 function addon:CHALLENGE_MODE_MAPS_UPDATE()
 	iKS:scanCharacterMaps()
+end
+function addon:CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN()
+	local _, _, _, _, _, _, _, mapID = GetInstanceInfo()
+	if iKS.mapID and iKS.mapID == mapID then
+		local bagID, slotID = iKS:scanInventory(true)
+		PickupContainerItem(bagID, slotID)
+		C_Timer.After(0.1, function()
+			if CursorHasItem() then
+				C_ChallengeMode.SlotKeystone()
+			end
+		end)
+	end
 end
 
 local function chatFiltering(self, event, msg, ...)
