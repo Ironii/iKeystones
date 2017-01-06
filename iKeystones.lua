@@ -238,6 +238,7 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 		if C_ChallengeMode.GetSlottedKeystoneInfo() then
 			C_ChallengeMode.StartChallengeMode()
 		end
+	else
+		iKS:printKeystones()
 	end
-	iKS:printKeystones()
 end

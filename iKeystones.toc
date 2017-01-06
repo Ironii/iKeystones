@@ -2,7 +2,7 @@
 ## Title: iKeystones
 ## Notes: Tracks your keystones
 ## Author: Ironi
-## Version: 1.0
+## Version: 1.01
 ## DefaultState: enabled
 
 ## SavedVariables: iKeystonesDB
