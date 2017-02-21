@@ -9,7 +9,22 @@ addon:RegisterEvent('BAG_UPDATE')
 addon:RegisterEvent('CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN')
 local iKS = {}
 local player = UnitGUID('player')
-
+iKS.weeklyChestItemLevels = {
+	[2] = 850,
+	[3] = 855,
+	[4] = 860,
+	[5] = 865,
+	[6] = 865,
+	[7] = 870,
+	[8] = 870,
+	[9] = 875,
+	[10] = 880,
+	[11] = 880,
+	[12] = 885,
+	[13] = 890,
+	[14] = 895,
+	[15] = 900,
+}
 function iKS:weeklyReset()
 	for guid,data in pairs(iKeystonesDB) do
 		iKeystonesDB[guid].key = {}
@@ -154,9 +169,12 @@ function iKS:printKeystones()
 		end
 		local str = ''
 		if data.server == GetRealmName() then
-			str = string.format('|c%s%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, itemLink, (data.maxCompleted >= 12 and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
+			str = string.format('|c%s%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, itemLink, (data.maxCompleted >= 15 and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
 		else
-			str = string.format('|c%s%s-%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, data.server,itemLink,(data.maxCompleted >= 12 and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
+			str = string.format('|c%s%s-%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, data.server,itemLink,(data.maxCompleted >= 15 and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
+		end
+		if data.maxCompleted > 0 then
+			str = str.. string.format('|r (%d)', iKS.weeklyChestItemLevels[data.maxCompleted] or 900)
 		end
 		print(str)
 	end
