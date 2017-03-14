@@ -212,6 +212,13 @@ end
 local function chatFiltering(self, event, msg, ...)
 	local linkStart = msg:find('Hitem:138019')
 	if linkStart then
+		if event == 'CHAT_MSG_BN_WHISPER_INFORM' or event == "CHAT_MSG_BN_WHISPER" then
+			linkStart = linkStart + 10
+			msg = msg:gsub('|Hitem:138019', '|cffa335ee|Hitem:138019')
+			local m = msg:sub(math.max(linkStart-1, 0))
+			local keystoneName = m:match('%[(.-)%]')
+			msg = msg:gsub(keystoneName..'%]|h', keystoneName..']|h|r', 1)
+		end
 		local preLink = msg:sub(1, linkStart-12)
 		local linkStuff = msg:sub(math.max(linkStart-11, 0))
 		local tempTable = {strsplit(':', linkStuff)}
