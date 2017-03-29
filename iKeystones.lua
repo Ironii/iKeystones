@@ -20,6 +20,20 @@ iKS.weeklyChestItemLevels = {
 	[9] = 900,
 	[10] = 905,
 }
+iKS.keystonesToMapIDs = {
+	[197] = 1456, -- Eye of Azhara
+	[198] = 1466, -- Darkhearth Thicket
+	[199] = 1501, -- Blackrook Hold
+	[200] = 1477, -- Halls of Valor
+	[206] = 1458, -- Neltharion's Lair
+	[207] = 1493, -- Vault of the Wardens
+	[208] = 1492, -- Maw of Souls
+	[209] = 1516, -- The Arcway
+	[210] = 1571, -- Court of Stars
+	[227] = 1651, -- Return to Karazhan: Lower
+	[233] = 1677, -- Cathedral of Eternal Night
+	[234] = 1651, -- Return to Karazhan: Upper
+}
 function iKS:weeklyReset()
 	for guid,data in pairs(iKeystonesDB) do
 		iKeystonesDB[guid].key = {}
@@ -72,44 +86,24 @@ function iKS:scanInventory(requestingSlots)
 					return bagID, invID
 				end
 				local itemLink = GetContainerItemLink(bagID, invID)
-				local tempTable = {strsplit(':', itemLink)}
 				-- debug
 				--tempKeyTable = {strsplit(':', itemLink)}
 				--iKeystoneT = tempKeyTable
 				-- end-of-debug
-				local keyLevel = tonumber(tempTable[16])
+				-- mapid, level,1 active/0 depleted,level4, level7, level10(?) 
+				local map, keyLevel, d, l4,l7,l10 = string.match(itemLink, 'keystone:(%d+):(%d+):(%d+):(%d+):(%d+):(%d+)')
 				iKeystonesDB[player].key = {
-					map = tonumber(tempTable[15]),
-					level = keyLevel,
-					--depleted = (tonumber(tempTable[12]) == 4063232 and true) or nil, -- 4063232 == depleted, 8257536 active
-					depleted = tonumber(tempTable[12]),
-					affix4 = tonumber(tempTable[17]),
-					affix7 = tonumber(tempTable[18]),
-					affix10 = tonumber(tempTable[19]),
-					arg20 = tonumber(tempTable[20]), -- some kind of depleted check ??
+					['map'] = tonumber(map),
+					['level'] = tonumber(keyLevel),
+					['depleted'] = tonumber(d),
+					['affix4'] = tonumber(l4),
+					['affix7'] = tonumber(l7),
+					['affix10'] = tonumber(l10),
 				}
+				keyLevel = tonumber(keyLevel)
 				if iKS.keyLevel and iKS.keyLevel < keyLevel then
-					local itemLinkTable = {
-						[1] = iKS:getItemColor(iKeystonesDB[player].key.level, iKeystonesDB[player].key.depleted),
-						[2] = 138019,
-						[10] = 110,
-						[11] = 250,
-						[12] = iKeystonesDB[player].key.depleted,
-						[15] = iKeystonesDB[player].key.map,
-						[16] = iKeystonesDB[player].key.level,
-						[17] = iKeystonesDB[player].key.affix4,
-						[18] = iKeystonesDB[player].key.affix7,
-						[19] = iKeystonesDB[player].key.affix10,
-						[20] = iKeystonesDB[player].key.arg20,
-						[23] = string.format('|h[%s (%s)]|h|r',GetRealZoneText(iKeystonesDB[player].key.map), iKeystonesDB[player].key.level),
-					}
-					for i = 1, 22 do
-						if not itemLinkTable[i] then
-							itemLinkTable[i] = ''
-						end
-					end
-					local itemLinkToPrint = table.concat(itemLinkTable, ':')
-					print('iKS: New keystone - ' .. itemLinkToPrint)
+					local itemLink = string.format('%s|Hkeystone:%d:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', iKS:getItemColor(data.key.level, data.key.depleted), data.key.map, data.key.level,data.key.depleted, data.key.affix4, data.key.affix7, data.key.affix10,iKS:getZoneInfo(data.key.map), data.key.level)
+					print('iKS: New keystone - ' .. itemLink)
 				end
 				iKS.keyLevel = keyLevel
 				iKS.mapID = iKeystonesDB[player].key.map
@@ -121,44 +115,34 @@ function iKS:scanInventory(requestingSlots)
 end
 function iKS:getItemColor(level, depleted)
 	if depleted == 4063232 then
-		return '|cff9d9d9d|Hitem'
+		return '|cff9d9d9d'
 	elseif level < 4 then	-- Epic
-		return '|cffa335ee|Hitem'
+		return '|cffa335ee'
 	elseif level < 7 then	-- Green
-		return '|cff3fbf3f|Hitem'
+		return '|cff3fbf3f'
 	elseif level < 10 then	-- Yellow
-		return '|cffffd100|Hitem'
+		return '|cffffd100'
 	elseif level < 15 then	-- orange
-		return '|cffff7f3f|Hitem'
+		return '|cffff7f3f'
 	else	-- Red
-		return '|cffff1919|Hitem'
+		return '|cffff1919'
 	end	
+end
+function iKS:getZoneInfo(mapID, zone)
+	local name, arg2, timelimit = C_ChallengeMode.GetMapInfo(mapID)
+	if zone then
+		return iKS.keystonesToMapIDs[mapID]
+		
+	else
+		return name
+	end
 end
 function iKS:printKeystones()
 	local allCharacters = {}
 	for guid,data in pairs(iKeystonesDB) do
 		local itemLink = ''
 		if data.key.map then
-			local itemLinkTable = {
-				[1] = iKS:getItemColor(data.key.level, data.key.depleted),
-				[2] = 138019,
-				[10] = 110,
-				[11] = 250,
-				[12] = data.key.depleted,
-				[15] = data.key.map,
-				[16] = data.key.level,
-				[17] = data.key.affix4,
-				[18] = data.key.affix7,
-				[19] = data.key.affix10,
-				[20] = data.key.arg20,
-				[23] = string.format('|h[%s (%s)]|h|r',GetRealZoneText(data.key.map), data.key.level),
-			}
-			for i = 1, 22 do
-				if not itemLinkTable[i] then
-					itemLinkTable[i] = ''
-				end
-			end
-			itemLink = table.concat(itemLinkTable, ':')
+			itemLink = string.format('%s|Hkeystone:%d:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', iKS:getItemColor(data.key.level, data.key.depleted), data.key.map, data.key.level,data.key.depleted, data.key.affix4, data.key.affix7, data.key.affix10,iKS:getZoneInfo(data.key.map), data.key.level)
 		else
 			itemLink = UNKNOWN
 		end
@@ -193,7 +177,7 @@ function addon:CHALLENGE_MODE_MAPS_UPDATE()
 end
 function addon:CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN()
 	local _, _, _, _, _, _, _, mapID = GetInstanceInfo()
-	if iKS.mapID and iKS.mapID == mapID then
+	if iKS.mapID and iKS.keystonesToMapIDs[iKS.mapID] == mapID then
 		local bagID, slotID = iKS:scanInventory(true)
 		PickupContainerItem(bagID, slotID)
 		C_Timer.After(0.1, function()
@@ -205,11 +189,11 @@ function addon:CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN()
 end
 
 local function chatFiltering(self, event, msg, ...)
-	local linkStart = msg:find('Hitem:138019')
+	local linkStart = msg:find('Hkeystone')
 	if linkStart then
 		if event == 'CHAT_MSG_BN_WHISPER_INFORM' or event == "CHAT_MSG_BN_WHISPER" then
 			linkStart = linkStart + 10
-			msg = msg:gsub('|Hitem:138019', '|cffa335ee|Hitem:138019')
+			msg = msg:gsub('|Hkeystone:', '|cffa335ee|Hkeystone:')
 			local m = msg:sub(math.max(linkStart-1, 0))
 			local keystoneName = m:match('%[(.-)%]')
 			msg = msg:gsub(keystoneName..'%]|h', keystoneName..']|h|r', 1)
@@ -217,14 +201,10 @@ local function chatFiltering(self, event, msg, ...)
 		local preLink = msg:sub(1, linkStart-12)
 		local linkStuff = msg:sub(math.max(linkStart-11, 0))
 		local tempTable = {strsplit(':', linkStuff)}
-		tempTable[1] = iKS:getItemColor(tonumber(tempTable[16]), tonumber(tempTable[12]))
-		for k,v in pairs(tempTable) do
-			if v and v:match('%[.-%]') then
-				tempTable[k] = string.gsub(tempTable[k], '%[.-%]', string.format('[%s (%s)]',GetRealZoneText(tonumber(tempTable[15])), tonumber(tempTable[16])), 1)
-				break
-			end
-		end
-		return false, preLink..table.concat(tempTable, ':'), ...
+		tempTable[1] = iKS:getItemColor(tonumber(tempTable[3]), tonumber(tempTable[4])) .. '|Hkeystone'
+		local fullString = table.concat(tempTable, ':')
+		fullString = string.gsub(fullString, '%[.-%]', string.format('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[2])), tonumber(tempTable[3])), 1)
+		return false, preLink..fullString, ...
 	end
 end
 
