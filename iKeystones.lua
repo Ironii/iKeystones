@@ -116,7 +116,7 @@ function iKS:getItemColor(level)
 		return '|cffffd100'
 	elseif level < 15 then	-- orange
 		return '|cffff7f3f'
-	else	-- Red
+	else -- Red
 		return '|cffff1919'
 	end
 end
