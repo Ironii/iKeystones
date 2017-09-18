@@ -9,22 +9,22 @@ addon:RegisterEvent('BAG_UPDATE')
 addon:RegisterEvent('CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN')
 local iKS = {}
 local player = UnitGUID('player')
-iKS.currentMax = 15
+iKS.currentMax = 10
 iKS.weeklyChestItemLevels = {
-	[2] = 875,
-	[3] = 880,
-	[4] = 885,
-	[5] = 890,
-	[6] = 890,
-	[7] = 895,
-	[8] = 895,
-	[9] = 900,
-	[10] = 905,
-	[11] = 910,
-	[12] = 915,
-	[13] = 920,
-	[14] = 925,
-	[15] = 930,
+	[2] = 905,
+	[3] = 910,
+	[4] = 915,
+	[5] = 920,
+	[6] = 920,
+	[7] = 925,
+	[8] = 925,
+	[9] = 930,
+	[10] = 935,
+	--[11] = 910,
+	--[12] = 915,
+	--[13] = 920,
+	--[14] = 925,
+	--[15] = 930,
 }
 iKS.keystonesToMapIDs = {
 	[197] = 1456, -- Eye of Azhara
@@ -39,6 +39,7 @@ iKS.keystonesToMapIDs = {
 	[227] = 1651, -- Return to Karazhan: Lower
 	[233] = 1677, -- Cathedral of Eternal Night
 	[234] = 1651, -- Return to Karazhan: Upper
+	[239] = 1753, -- The Seat of the Triumvirate
 }
 function iKS:weeklyReset()
 	for guid,data in pairs(iKeystonesDB) do
