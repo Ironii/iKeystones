@@ -354,14 +354,27 @@ function iKS:createNewLine()
 	f.max.text:SetText(#iKS.frames == 1 and 'Max' or '')
 	f.max.text:Show()
 
+	f.ilvl = CreateFrame('frame', nil , iKS.anchor)
+	f.ilvl:SetSize(50,20)
+	f.ilvl:SetBackdrop(iKS.bd)
+	f.ilvl:SetBackdropColor(.1,.1,.1,.9)
+	f.ilvl:SetBackdropBorderColor(0,0,0,1)
+	f.ilvl:SetPoint('TOPLEFT', f.max, 'TOPRIGHT', 0,0)
+
+	f.ilvl.text = f.key:CreateFontString()
+	f.ilvl.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 16, 'OUTLINE')
+	f.ilvl.text:SetPoint('CENTER', f.ilvl, 'CENTER', 0,0)
+	f.ilvl.text:SetText(#iKS.frames == 1 and 'iLvL' or '')
+	f.ilvl.text:Show()
+
 	f.ap = CreateFrame('frame', nil , iKS.anchor)
 	f.ap:SetSize(50,20)
 	f.ap:SetBackdrop(iKS.bd)
 	f.ap:SetBackdropColor(.1,.1,.1,.9)
 	f.ap:SetBackdropBorderColor(0,0,0,1)
-	f.ap:SetPoint('TOPLEFT', f.max, 'TOPRIGHT', 0,0)
+	f.ap:SetPoint('TOPLEFT', f.ilvl, 'TOPRIGHT', 0,0)
 
-	f.ap.text = f.key:CreateFontString()
+	f.ap.text = f.ap:CreateFontString()
 	f.ap.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 16, 'OUTLINE')
 	f.ap.text:SetPoint('CENTER', f.ap, 'CENTER', 0,0)
 	f.ap.text:SetText(#iKS.frames == 1 and 'AP' or '')
@@ -382,7 +395,6 @@ function iKS:createMainWindow()
 	local maxSizes = {
 		name = 96,
 		key = 146,
-		maxD = 46,
 		ap = 46,
 	}
 	for k,v in pairs(iKeystonesDB) do
@@ -398,6 +410,7 @@ function iKS:createMainWindow()
 		end
 		f.key.text:SetText(v.key.level and string.format('%s%s (%s)|r', iKS:getItemColor(v.key.level), iKS:getZoneInfo(v.key.map), v.key.level) or '-')
 		f.max.text:SetText((v.maxCompleted >= iKS.currentMax and '|cff00ff00' .. v.maxCompleted) or v.maxCompleted)
+		f.ilvl.text:SetText(v.maxCompleted > 0 and (iKS.weeklyChestItemLevels[v.maxCompleted] or iKS.weeklyChestItemLevels[iKS.currentMax]) or '-')
 		f.ap.text:SetText(iKS:getAP(v.maxCompleted))
 		if f.name.text:GetWidth() > maxSizes.name then
 			maxSizes.name = f.name.text:GetWidth()
@@ -405,25 +418,22 @@ function iKS:createMainWindow()
 		if f.key.text:GetWidth() > maxSizes.key then
 			maxSizes.key = f.key.text:GetWidth()
 		end
-		if f.max.text:GetWidth() > maxSizes.maxD then
-			maxSizes.max = f.max.text:GetWidth()
-		end
 		if f.ap.text:GetWidth() > maxSizes.ap then
 			maxSizes.ap = f.ap.text:GetWidth()
 		end
 		f.name:Show()
 		f.key:Show()
 		f.max:Show()
+		f.ilvl:Show()
 		f.ap:Show()
 	end
 	for id = 1, i do
 		local f = iKS.frames[id]
 		f.name:SetWidth(maxSizes.name+4)
 		f.key:SetWidth(maxSizes.key+4)
-		f.max:SetWidth(maxSizes.maxD+4)
 		f.ap:SetWidth(maxSizes.ap+4)
 	end
-	iKS.anchor:SetWidth(maxSizes.name+maxSizes.key+maxSizes.maxD+maxSizes.ap)
+	iKS.anchor:SetWidth(maxSizes.name+maxSizes.key+maxSizes.ap+100) --+max(50)+ilvl(50)
 end
 
 function iksTEST()
