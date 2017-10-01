@@ -7,7 +7,9 @@ addon:RegisterEvent('CHALLENGE_MODE_MAPS_UPDATE')
 addon:RegisterEvent('PLAYER_LOGIN')
 addon:RegisterEvent('BAG_UPDATE')
 addon:RegisterEvent('CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN')
+addon:RegisterEvent('ARTIFACT_UPDATE')
 local iKS = {}
+iKS.frames = {}
 local player = UnitGUID('player')
 iKS.currentMax = 10
 iKS.weeklyChestItemLevels = {
@@ -41,6 +43,43 @@ iKS.keystonesToMapIDs = {
 	[234] = 1651, -- Return to Karazhan: Upper
 	[239] = 1753, -- The Seat of the Triumvirate
 }
+iKS.akMods = {
+	[41] = 16000100,
+	[42] = 20800100,
+	[43] = 27040100,
+	[44] = 35150100,
+	[45] = 45700100,
+	[46] = 59400100,
+	[47] = 77250100,
+	[48] = 100400100,
+	[49] = 130500100,
+	[50] = 169650100,
+	[51] = 220550100,
+	[52] = 286750100,
+	[53] = 372750100,
+	[54] = 484600100,
+	[55] = 630000100,
+}
+function iKS:getAP(level)
+	if iKeystonesConfig.ak and level then
+		local akMod = iKS.akMods[(iKeystonesConfig.ak <55 and iKeystonesConfig.ak+1) or 55]/100
+		local ap
+		if level >= 15 then
+			ap = (5000+(level-15)*400)*akMod
+		elseif level >= 10 then
+			ap = (3125+(level-10)*400)*akMod
+		elseif level >= 7 then
+			ap = 2150*akMod
+		elseif level >= 4 then
+			ap = 1925*akMod
+		elseif level > 0 then
+			ap = 1250*akMod
+		end
+		return ap and (string.format('%.2fB', ap/1e9)) or '-'
+	else
+		return '-'
+	end
+end
 function iKS:weeklyReset()
 	for guid,data in pairs(iKeystonesDB) do
 		iKeystonesDB[guid].key = {}
@@ -151,7 +190,7 @@ function iKS:printKeystones()
 			str = string.format('|c%s%s-%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, data.server,itemLink,(data.maxCompleted >= iKS.currentMax and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
 		end
 		if data.maxCompleted > 0 then
-			str = str.. string.format('|r (%d)', iKS.weeklyChestItemLevels[data.maxCompleted] or iKS.weeklyChestItemLevels[iKS.currentMax])
+			str = str.. string.format('|r (%d) AP: %s', iKS.weeklyChestItemLevels[data.maxCompleted] or iKS.weeklyChestItemLevels[iKS.currentMax], iKS:getAP(data.maxCompleted))
 		end
 		print(str)
 	end
@@ -160,11 +199,25 @@ function addon:PLAYER_LOGIN()
 	player = UnitGUID('player')
 	C_ChallengeMode.RequestMapInfo()
 	iKS:scanInventory()
+	GarrisonLandingPageMinimapButton:HookScript('OnEnter', function()
+		if IsShiftKeyDown() then
+			iKS:createMainWindow()
+		else
+			GameTooltip:AddLine('Shift-Hover to show iKeystones')
+		end
+		GameTooltip:Show() -- force refresh to resize
+	end)
+	GarrisonLandingPageMinimapButton:HookScript('OnLeave', function()
+		if iKS.anchor then
+			iKS.anchor:Hide()
+		end
+	end)
 end
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		addon:UnregisterEvent('ADDON_LOADED')
 		iKeystonesDB = iKeystonesDB or {}
+		iKeystonesConfig = iKeystonesConfig or {}
 	end
 end
 function addon:BAG_UPDATE()
@@ -172,6 +225,12 @@ function addon:BAG_UPDATE()
 end
 function addon:CHALLENGE_MODE_MAPS_UPDATE()
 	iKS:scanCharacterMaps()
+end
+function addon:ARTIFACT_UPDATE()
+    local c = C_ArtifactUI.GetArtifactKnowledgeLevel()
+    if c then
+		iKeystonesConfig.ak = c
+	end
 end
 function addon:CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN()
 	local _, _, _, _, _, _, _, mapID = GetInstanceInfo()
@@ -240,6 +299,139 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER_INFORM", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_LOOT", chatFiltering)
+
+iKS.bd = {
+	bgFile = "Interface\\Buttons\\WHITE8x8",
+	edgeFile = "Interface\\Buttons\\WHITE8x8",
+	edgeSize = 1,
+	insets = {
+		left = -1,
+		right = -1,
+		top = -1,
+		bottom = -1,
+	},
+}
+function iKS:createNewLine()
+	--char -- key -- highest -- ap gain
+	iKS.frames[#iKS.frames+1] = {}
+	local f = iKS.frames[#iKS.frames]
+	f.name = CreateFrame('frame', nil , iKS.anchor)
+	f.name:SetSize(100,20)
+	f.name:SetBackdrop(iKS.bd)
+	f.name:SetBackdropColor(.1,.1,.1,.9)
+	f.name:SetBackdropBorderColor(0,0,0,1)
+	f.name:SetPoint('TOPLEFT', (#iKS.frames == 1 and iKS.anchor or iKS.frames[#iKS.frames-1].name), 'BOTTOMLEFT', 0,0)
+
+	f.name.text = f.name:CreateFontString()
+	f.name.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 16, 'OUTLINE')
+	f.name.text:SetPoint('LEFT', f.name, 'LEFT', 2,0)
+	f.name.text:SetText(#iKS.frames == 1 and 'Character' or '')
+	f.name.text:Show()
+
+	f.key = CreateFrame('frame', nil , iKS.anchor)
+	f.key:SetSize(150,20)
+	f.key:SetBackdrop(iKS.bd)
+	f.key:SetBackdropColor(.1,.1,.1,.9)
+	f.key:SetBackdropBorderColor(0,0,0,1)
+	f.key:SetPoint('TOPLEFT', f.name, 'TOPRIGHT', 0,0)
+
+	f.key.text = f.key:CreateFontString()
+	f.key.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 16, 'OUTLINE')
+	f.key.text:SetPoint('LEFT', f.key, 'LEFT', 2,0)
+	f.key.text:SetText(#iKS.frames == 1 and 'Current key' or '')
+	f.key.text:Show()
+
+	f.max = CreateFrame('frame', nil , iKS.anchor)
+	f.max:SetSize(50,20)
+	f.max:SetBackdrop(iKS.bd)
+	f.max:SetBackdropColor(.1,.1,.1,.9)
+	f.max:SetBackdropBorderColor(0,0,0,1)
+	f.max:SetPoint('TOPLEFT', f.key, 'TOPRIGHT', 0,0)
+
+	f.max.text = f.max:CreateFontString()
+	f.max.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 16, 'OUTLINE')
+	f.max.text:SetPoint('CENTER', f.max, 'CENTER', 0,0)
+	f.max.text:SetText(#iKS.frames == 1 and 'Max' or '')
+	f.max.text:Show()
+
+	f.ap = CreateFrame('frame', nil , iKS.anchor)
+	f.ap:SetSize(50,20)
+	f.ap:SetBackdrop(iKS.bd)
+	f.ap:SetBackdropColor(.1,.1,.1,.9)
+	f.ap:SetBackdropBorderColor(0,0,0,1)
+	f.ap:SetPoint('TOPLEFT', f.max, 'TOPRIGHT', 0,0)
+
+	f.ap.text = f.key:CreateFontString()
+	f.ap.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 16, 'OUTLINE')
+	f.ap.text:SetPoint('CENTER', f.ap, 'CENTER', 0,0)
+	f.ap.text:SetText(#iKS.frames == 1 and 'AP' or '')
+	f.ap.text:Show()
+end
+
+function iKS:createMainWindow()
+	if not iKS.anchor then
+		iKS.anchor = CreateFrame('frame', nil, UIParent)
+		iKS.anchor:SetSize(5,5)
+	end
+	iKS.anchor:SetPoint('TOP', UIParent, 'TOP', 0,-50)
+	iKS.anchor:Show()
+	if #iKS.frames == 0 then
+		iKS:createNewLine()
+	end
+	local i = 1
+	local maxSizes = {
+		name = 96,
+		key = 146,
+		maxD = 46,
+		ap = 46,
+	}
+	for k,v in pairs(iKeystonesDB) do
+		i = i + 1
+		if not iKS.frames[i] then
+			iKS:createNewLine()
+		end
+		local f = iKS.frames[i]
+		if v.server == GetRealmName() then
+			f.name.text:SetText(string.format('|c%s%s\124r', RAID_CLASS_COLORS[v.class].colorStr, v.name))
+		else
+			f.name.text:SetText(string.format('|c%s%s\124r - %s', RAID_CLASS_COLORS[v.class].colorStr, v.name, v.server))
+		end
+		f.key.text:SetText(v.key.level and string.format('%s%s (%s)|r', iKS:getItemColor(v.key.level), iKS:getZoneInfo(v.key.map), v.key.level) or '-')
+		f.max.text:SetText((v.maxCompleted >= iKS.currentMax and '|cff00ff00' .. v.maxCompleted) or v.maxCompleted)
+		f.ap.text:SetText(iKS:getAP(v.maxCompleted))
+		if f.name.text:GetWidth() > maxSizes.name then
+			maxSizes.name = f.name.text:GetWidth()
+		end
+		if f.key.text:GetWidth() > maxSizes.key then
+			maxSizes.key = f.key.text:GetWidth()
+		end
+		if f.max.text:GetWidth() > maxSizes.maxD then
+			maxSizes.max = f.max.text:GetWidth()
+		end
+		if f.ap.text:GetWidth() > maxSizes.ap then
+			maxSizes.ap = f.ap.text:GetWidth()
+		end
+		f.name:Show()
+		f.key:Show()
+		f.max:Show()
+		f.ap:Show()
+	end
+	for id = 1, i do
+		local f = iKS.frames[id]
+		f.name:SetWidth(maxSizes.name+4)
+		f.key:SetWidth(maxSizes.key+4)
+		f.max:SetWidth(maxSizes.maxD+4)
+		f.ap:SetWidth(maxSizes.ap+4)
+	end
+	iKS.anchor:SetWidth(maxSizes.name+maxSizes.key+maxSizes.maxD+maxSizes.ap)
+end
+
+function iksTEST()
+	if not iKS.frame then
+		iKS:createMainWindow()
+	end
+end
+
 
 SLASH_IKEYSTONES1 = "/ikeystones"
 SLASH_IKEYSTONES2 = "/iks"
