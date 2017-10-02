@@ -85,6 +85,20 @@ function iKS:weeklyReset()
 		iKeystonesDB[guid].key = {}
 		iKeystonesDB[guid].maxCompleted = 0
 	end
+	iKeystonesConfig.aff = {
+		aff4 = {
+			a = 0,
+			t = false,
+		},
+		aff7 = {
+			a = 0,
+			t = false,
+		},
+		aff10 = {
+			a = 0,
+			t = false,
+		},
+	}
 	iKS:scanInventory()
 end
 function iKS:createPlayer()
@@ -133,12 +147,16 @@ function iKS:scanInventory(requestingSlots)
 				end
 				local itemLink = GetContainerItemLink(bagID, invID)
 				local map, keyLevel, l4,l7,l10 = string.match(itemLink, 'keystone:(%d+):(%d+):(%d+):(%d+):(%d+)')
+				l4 = tonumber(l4)
+				l7 = tonumber(l7)
+				l10 = tonumber(l10)
+				iKS:checkAffs(l4,l7,l10,true)
 				iKeystonesDB[player].key = {
 					['map'] = tonumber(map),
 					['level'] = tonumber(keyLevel),
-					['affix4'] = tonumber(l4),
-					['affix7'] = tonumber(l7),
-					['affix10'] = tonumber(l10),
+					['affix4'] = l4,
+					['affix7'] = l7,
+					['affix10'] = l10,
 				}
 				keyLevel = tonumber(keyLevel)
 				if iKS.keyLevel and iKS.keyLevel < keyLevel then
@@ -152,6 +170,38 @@ function iKS:scanInventory(requestingSlots)
 		end
 	end
 
+end
+function iKS:checkAffs(aff4,aff7,aff10,trusted)
+	if trusted then
+		if aff4 > 0 then
+			iKeystonesConfig.aff.aff4 = {
+				a = aff4,
+				t = true,
+			}
+		end
+		if aff7 > 0 then
+			iKeystonesConfig.aff.aff7 = {
+				a = aff7,
+				t = true,
+			}
+		end
+		if aff10 > 0 then
+			iKeystonesConfig.aff.aff10 = {
+				a = aff10,
+				t = true,
+			}
+		end
+	else
+		if iKeystonesConfig.aff.aff4.a == 0 and not iKeystonesConfig.aff.aff4.t then
+			iKeystonesConfig.aff.aff4.a = aff4
+		end
+		if iKeystonesConfig.aff.aff7.a == 0 and not iKeystonesConfig.aff.aff7.t then
+			iKeystonesConfig.aff.aff7.a = aff7
+		end
+		if iKeystonesConfig.aff.aff10.a == 0 and not iKeystonesConfig.aff.aff10.t then
+			iKeystonesConfig.aff.aff10.a = aff10
+		end
+	end
 end
 function iKS:getItemColor(level)
 	if level < 4 then	-- Epic
@@ -218,6 +268,22 @@ function addon:ADDON_LOADED(addonName)
 		addon:UnregisterEvent('ADDON_LOADED')
 		iKeystonesDB = iKeystonesDB or {}
 		iKeystonesConfig = iKeystonesConfig or {}
+		if not iKeystonesConfig.aff then
+			iKeystonesConfig.aff = {
+				aff4 = {
+					a = 0,
+					t = false,
+				},
+				aff7 = {
+					a = 0,
+					t = false,
+				},
+				aff10 = {
+					a = 0,
+					t = false,
+				},
+			}
+		end
 	end
 end
 function addon:BAG_UPDATE()
@@ -275,6 +341,8 @@ local function chatFiltering(self, event, msg, ...)
 			local linkStuff = msg:sub(math.max(linkStart-11, 0))
 			local tempTable = {strsplit(':', linkStuff)}
 			tempTable[1] = iKS:getItemColor(tonumber(tempTable[3]), tonumber(tempTable[4])) .. '|Hkeystone'
+			local _, _, aff4,aff7,aff10 = string.match(linkStuff, 'keystone:(%d+):(%d+):(%d+):(%d+):(%d+)')
+			iKS:checkAffs(tonumber(aff4),tonumber(aff7),tonumber(aff10))
 			local fullString = table.concat(tempTable, ':')
 			fullString = string.gsub(fullString, '%[.-%]', string.format('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[2])), tonumber(tempTable[3])), 1)
 			return false, preLink..fullString, ...
@@ -323,7 +391,7 @@ function iKS:createNewLine()
 	f.name:SetPoint('TOPLEFT', (#iKS.frames == 1 and iKS.anchor or iKS.frames[#iKS.frames-1].name), 'BOTTOMLEFT', 0,0)
 
 	f.name.text = f.name:CreateFontString()
-	f.name.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 16, 'OUTLINE')
+	f.name.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
 	f.name.text:SetPoint('LEFT', f.name, 'LEFT', 2,0)
 	f.name.text:SetText(#iKS.frames == 1 and 'Character' or '')
 	f.name.text:Show()
@@ -336,7 +404,7 @@ function iKS:createNewLine()
 	f.key:SetPoint('TOPLEFT', f.name, 'TOPRIGHT', 0,0)
 
 	f.key.text = f.key:CreateFontString()
-	f.key.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 16, 'OUTLINE')
+	f.key.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
 	f.key.text:SetPoint('LEFT', f.key, 'LEFT', 2,0)
 	f.key.text:SetText(#iKS.frames == 1 and 'Current key' or '')
 	f.key.text:Show()
@@ -349,7 +417,7 @@ function iKS:createNewLine()
 	f.max:SetPoint('TOPLEFT', f.key, 'TOPRIGHT', 0,0)
 
 	f.max.text = f.max:CreateFontString()
-	f.max.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 16, 'OUTLINE')
+	f.max.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
 	f.max.text:SetPoint('CENTER', f.max, 'CENTER', 0,0)
 	f.max.text:SetText(#iKS.frames == 1 and 'Max' or '')
 	f.max.text:Show()
@@ -362,7 +430,7 @@ function iKS:createNewLine()
 	f.ilvl:SetPoint('TOPLEFT', f.max, 'TOPRIGHT', 0,0)
 
 	f.ilvl.text = f.key:CreateFontString()
-	f.ilvl.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 16, 'OUTLINE')
+	f.ilvl.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
 	f.ilvl.text:SetPoint('CENTER', f.ilvl, 'CENTER', 0,0)
 	f.ilvl.text:SetText(#iKS.frames == 1 and 'iLvL' or '')
 	f.ilvl.text:Show()
@@ -375,12 +443,11 @@ function iKS:createNewLine()
 	f.ap:SetPoint('TOPLEFT', f.ilvl, 'TOPRIGHT', 0,0)
 
 	f.ap.text = f.ap:CreateFontString()
-	f.ap.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 16, 'OUTLINE')
+	f.ap.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
 	f.ap.text:SetPoint('CENTER', f.ap, 'CENTER', 0,0)
 	f.ap.text:SetText(#iKS.frames == 1 and 'AP' or '')
 	f.ap.text:Show()
 end
-
 function iKS:createMainWindow()
 	if not iKS.anchor then
 		iKS.anchor = CreateFrame('frame', nil, UIParent)
@@ -390,6 +457,49 @@ function iKS:createMainWindow()
 	iKS.anchor:Show()
 	if #iKS.frames == 0 then
 		iKS:createNewLine()
+		--Create affix slots
+		iKS.affixes = {}
+		local f = iKS.affixes
+		f.aff4 = CreateFrame('frame', nil , iKS.anchor)
+		f.aff4:SetSize(150,20)
+		f.aff4:SetBackdrop(iKS.bd)
+		f.aff4:SetBackdropColor(.1,.1,.1,.9)
+		f.aff4:SetBackdropBorderColor(0,0,0,1)
+		--f.aff4:SetPoint('TOPLEFT', iKS.anchor, 'BOTTOMLEFT', 0,0)
+
+		f.aff4.text = f.aff4:CreateFontString()
+		f.aff4.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+		f.aff4.text:SetPoint('CENTER', f.aff4, 'CENTER', 0,0)
+		f.aff4.text:SetText('Sanguine')
+		--f.aff4.text:Show()
+
+		f.aff7 = CreateFrame('frame', nil , iKS.anchor)
+		f.aff7:SetSize(150,20)
+		f.aff7:SetBackdrop(iKS.bd)
+		f.aff7:SetBackdropColor(.1,.1,.1,.9)
+		f.aff7:SetBackdropBorderColor(0,0,0,1)
+		f.aff7:SetPoint('TOPLEFT', f.aff4, 'TOPRIGHT', 0,0)
+
+		f.aff7.text = f.aff7:CreateFontString()
+		f.aff7.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+		f.aff7.text:SetPoint('CENTER', f.aff7, 'CENTER', 0,0)
+		f.aff7.text:SetText('Volcanic')
+		--f.aff7.text:Show()
+
+		f.aff10 = CreateFrame('frame', nil , iKS.anchor)
+		f.aff10:SetSize(150,20)
+		f.aff10:SetBackdrop(iKS.bd)
+		f.aff10:SetBackdropColor(.1,.1,.1,.9)
+		f.aff10:SetBackdropBorderColor(0,0,0,1)
+		f.aff10:SetPoint('TOPLEFT', f.aff7, 'TOPRIGHT', 0,0)
+
+		f.aff10.text = f.aff10:CreateFontString()
+		f.aff10.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+		f.aff10.text:SetPoint('CENTER', f.aff10, 'CENTER', 0,0)
+		f.aff10.text:SetText('Tyrannical')
+		--f.aff7.text:Show()
+
+
 	end
 	local i = 1
 	local maxSizes = {
@@ -409,7 +519,7 @@ function iKS:createMainWindow()
 			f.name.text:SetText(string.format('|c%s%s\124r - %s', RAID_CLASS_COLORS[v.class].colorStr, v.name, v.server))
 		end
 		f.key.text:SetText(v.key.level and string.format('%s%s (%s)|r', iKS:getItemColor(v.key.level), iKS:getZoneInfo(v.key.map), v.key.level) or '-')
-		f.max.text:SetText((v.maxCompleted >= iKS.currentMax and '|cff00ff00' .. v.maxCompleted) or v.maxCompleted)
+		f.max.text:SetText((v.maxCompleted >= iKS.currentMax and '|cff00ff00' .. v.maxCompleted) or (v.maxCompleted > 0 and v.maxCompleted) or '-')
 		f.ilvl.text:SetText(v.maxCompleted > 0 and (iKS.weeklyChestItemLevels[v.maxCompleted] or iKS.weeklyChestItemLevels[iKS.currentMax]) or '-')
 		f.ap.text:SetText(iKS:getAP(v.maxCompleted))
 		if f.name.text:GetWidth() > maxSizes.name then
@@ -433,13 +543,27 @@ function iKS:createMainWindow()
 		f.key:SetWidth(maxSizes.key+4)
 		f.ap:SetWidth(maxSizes.ap+4)
 	end
-	iKS.anchor:SetWidth(maxSizes.name+maxSizes.key+maxSizes.ap+100) --+max(50)+ilvl(50)
+	local w = maxSizes.name+maxSizes.key+maxSizes.ap+100 --+max(50)+ilvl(50)
+	iKS.anchor:SetWidth(w)
+
+	iKS.affixes.aff4:ClearAllPoints()
+	iKS.affixes.aff4:SetPoint('TOPLEFT', iKS.frames[i].name, 'BOTTOMLEFT', 0,0)
+	iKS.affixes.aff4:SetWidth(w/3)
+	iKS.affixes.aff4.text:SetText(C_ChallengeMode.GetAffixInfo(iKeystonesConfig.aff.aff4.a) or UNKNOWN)
+
+	iKS.affixes.aff10:SetWidth(w/3)
+	iKS.affixes.aff10:ClearAllPoints()
+	iKS.affixes.aff10:SetPoint('TOPRIGHT', iKS.frames[i].ap, 'BOTTOMRIGHT', 0,0)
+	iKS.affixes.aff10.text:SetText(C_ChallengeMode.GetAffixInfo(iKeystonesConfig.aff.aff10.a) or UNKNOWN)
+
+	iKS.affixes.aff7:ClearAllPoints()
+	iKS.affixes.aff7:SetPoint('LEFT', iKS.affixes.aff4, 'RIGHT', 0,0)
+	iKS.affixes.aff7:SetPoint('RIGHT', iKS.affixes.aff10, 'LEFT', 0,0)
+	iKS.affixes.aff7.text:SetText(C_ChallengeMode.GetAffixInfo(iKeystonesConfig.aff.aff7.a) or UNKNOWN)
 end
 
 function iksTEST()
-	if not iKS.frame then
-		iKS:createMainWindow()
-	end
+	return iKS
 end
 
 
