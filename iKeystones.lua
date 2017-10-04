@@ -82,6 +82,9 @@ function iKS:getAP(level)
 end
 function iKS:weeklyReset()
 	for guid,data in pairs(iKeystonesDB) do
+		if iKeystonesDB[guid].maxCompleted and iKeystonesDB[guid].maxCompleted > 0 then
+			iKeystonesDB[guid].canLoot = true
+		end
 		iKeystonesDB[guid].key = {}
 		iKeystonesDB[guid].maxCompleted = 0
 	end
@@ -100,6 +103,7 @@ function iKS:weeklyReset()
 		},
 	}
 	iKS:scanInventory()
+	addon:RegisterEvent('QUEST_LOG_UPDATE')
 end
 function iKS:createPlayer()
 	if player and not iKeystonesDB[player] then
@@ -110,6 +114,7 @@ function iKS:createPlayer()
 				class = select(2, UnitClass('player')),
 				maxCompleted = 0,
 				key = {},
+				canLoot = false,
 			}
 			return true
 		else
@@ -169,7 +174,6 @@ function iKS:scanInventory(requestingSlots)
 			end
 		end
 	end
-
 end
 function iKS:checkAffs(aff4,aff7,aff10,trusted)
 	if trusted then
@@ -249,6 +253,11 @@ function addon:PLAYER_LOGIN()
 	player = UnitGUID('player')
 	C_ChallengeMode.RequestMapInfo()
 	iKS:scanInventory()
+	if iKeystonesDB[player].canLoot then
+		addon:RegisterEvent('QUEST_LOG_UPDATE')
+	elseif not IsQuestFlaggedCompleted(44554) then
+		addon:RegisterEvent('ADDON_LOADED')
+	end
 	GarrisonLandingPageMinimapButton:HookScript('OnEnter', function()
 		if IsShiftKeyDown() then
 			iKS:createMainWindow()
@@ -284,6 +293,9 @@ function addon:ADDON_LOADED(addonName)
 				},
 			}
 		end
+	elseif addonName == 'Blizzard_ChallengesUI' then
+		addon:UnregisterEvent('ADDON_LOADED')
+		iKeystonesDB[player].canLoot = C_ChallengeMode.IsWeeklyRewardAvailable()
 	end
 end
 function addon:BAG_UPDATE()
@@ -296,6 +308,12 @@ function addon:ARTIFACT_UPDATE()
     local c = C_ArtifactUI.GetArtifactKnowledgeLevel()
     if c then
 		iKeystonesConfig.ak = c
+	end
+end
+function addon:QUEST_LOG_UPDATE()
+	if IsQuestFlaggedCompleted(44554) then
+		iKeystonesDB[player].canLoot = false
+		addon:UnregisterEvent('QUEST_LOG_UPDATE')
 	end
 end
 function addon:CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN()
@@ -507,6 +525,7 @@ function iKS:createMainWindow()
 		key = 146,
 		ap = 46,
 	}
+	local treasure = '|TInterface\\Icons\\inv_misc_treasurechest02b:16|t'
 	for k,v in pairs(iKeystonesDB) do
 		i = i + 1
 		if not iKS.frames[i] then
@@ -514,9 +533,9 @@ function iKS:createMainWindow()
 		end
 		local f = iKS.frames[i]
 		if v.server == GetRealmName() then
-			f.name.text:SetText(string.format('|c%s%s\124r', RAID_CLASS_COLORS[v.class].colorStr, v.name))
+			f.name.text:SetText(string.format('%s|c%s%s\124r', (v.canLoot and treasure or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name))
 		else
-			f.name.text:SetText(string.format('|c%s%s\124r - %s', RAID_CLASS_COLORS[v.class].colorStr, v.name, v.server))
+			f.name.text:SetText(string.format('%s|c%s%s\124r - %s',(v.canLoot and treasure or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name, v.server))
 		end
 		f.key.text:SetText(v.key.level and string.format('%s%s (%s)|r', iKS:getItemColor(v.key.level), iKS:getZoneInfo(v.key.map), v.key.level) or '-')
 		f.max.text:SetText((v.maxCompleted >= iKS.currentMax and '|cff00ff00' .. v.maxCompleted) or (v.maxCompleted > 0 and v.maxCompleted) or '-')
@@ -561,11 +580,6 @@ function iKS:createMainWindow()
 	iKS.affixes.aff7:SetPoint('RIGHT', iKS.affixes.aff10, 'LEFT', 0,0)
 	iKS.affixes.aff7.text:SetText(C_ChallengeMode.GetAffixInfo(iKeystonesConfig.aff.aff7.a) or UNKNOWN)
 end
-
-function iksTEST()
-	return iKS
-end
-
 
 SLASH_IKEYSTONES1 = "/ikeystones"
 SLASH_IKEYSTONES2 = "/iks"
