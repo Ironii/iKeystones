@@ -295,7 +295,11 @@ function addon:ADDON_LOADED(addonName)
 		end
 	elseif addonName == 'Blizzard_ChallengesUI' then
 		addon:UnregisterEvent('ADDON_LOADED')
-		iKeystonesDB[player].canLoot = C_ChallengeMode.IsWeeklyRewardAvailable()
+		local q = C_ChallengeMode.IsWeeklyRewardAvailable()
+		iKeystonesDB[player].canLoot = q
+		if q then
+			addon:RegisterEvent('QUEST_LOG_UPDATE')
+		end		
 	end
 end
 function addon:BAG_UPDATE()
