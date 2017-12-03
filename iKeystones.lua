@@ -100,7 +100,7 @@ iKS.keystonesToMapIDs = {
 	[239] = 1753, -- The Seat of the Triumvirate
 }
 iKS.akMod = 630000100/100
-}
+
 function iKS:getAP(level, map, current, onlyNumber)
 	if level and map then
 		local dif = iKS.apFromDungeons.dif[map] or 2 -- default to normal
