@@ -7,11 +7,10 @@ addon:RegisterEvent('CHALLENGE_MODE_MAPS_UPDATE')
 addon:RegisterEvent('PLAYER_LOGIN')
 addon:RegisterEvent('BAG_UPDATE')
 addon:RegisterEvent('CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN')
-addon:RegisterEvent('ARTIFACT_UPDATE')
 local iKS = {}
 iKS.frames = {}
 local player = UnitGUID('player')
-iKS.currentMax = 10
+iKS.currentMax = 15
 iKS.weeklyChestItemLevels = {
 	[2] = 905,
 	[3] = 910,
@@ -22,11 +21,11 @@ iKS.weeklyChestItemLevels = {
 	[8] = 925,
 	[9] = 930,
 	[10] = 935,
-	--[11] = 910,
-	--[12] = 915,
-	--[13] = 920,
-	--[14] = 925,
-	--[15] = 930,
+	[11] = 940,
+	[12] = 945,
+	[13] = 950,
+	[14] = 955,
+	[15] = 960,
 }
 iKS.itemLevels = {
 	[2] = 890,
@@ -38,11 +37,11 @@ iKS.itemLevels = {
 	[8] = 910,
 	[9] = 910,
 	[10] = 915,
-	--[11] = 910,
-	--[12] = 915,
-	--[13] = 920,
-	--[14] = 925,
-	--[15] = 930,
+	[11] = 920,
+	[12] = 925,
+	[13] = 930,
+	[14] = 935,
+	[15] = 940,
 }
 iKS.apFromDungeons = {
 	[1] = { -- Lesser
@@ -100,61 +99,39 @@ iKS.keystonesToMapIDs = {
 	[234] = 1651, -- Return to Karazhan: Upper
 	[239] = 1753, -- The Seat of the Triumvirate
 }
-iKS.akMods = {
-	[41] = 16000100,
-	[42] = 20800100,
-	[43] = 27040100,
-	[44] = 35150100,
-	[45] = 45700100,
-	[46] = 59400100,
-	[47] = 77250100,
-	[48] = 100400100,
-	[49] = 130500100,
-	[50] = 169650100,
-	[51] = 220550100,
-	[52] = 286750100,
-	[53] = 372750100,
-	[54] = 484600100,
-	[55] = 630000100,
+iKS.akMod = 630000100/100
 }
 function iKS:getAP(level, map, current, onlyNumber)
 	if level and map then
-		local akMod = iKS.akMods[iKeystonesConfig.ak]/100
 		local dif = iKS.apFromDungeons.dif[map] or 2 -- default to normal
 		if level >= 15 then
-			ap = (iKS.apFromDungeons[dif].m+(level-15)*iKS.apFromDungeons[dif].b)*akMod
+			ap = (iKS.apFromDungeons[dif].m+(level-15)*iKS.apFromDungeons[dif].b)*iKS.akMod
 		elseif level >= 10 then
-			ap = (iKS.apFromDungeons[dif].c+(level-10)*iKS.apFromDungeons[dif].b)*akMod
+			ap = (iKS.apFromDungeons[dif].c+(level-10)*iKS.apFromDungeons[dif].b)*iKS.akMod
 		elseif level >= 7 then
-			ap = iKS.apFromDungeons[dif].h*akMod
+			ap = iKS.apFromDungeons[dif].h*iKS.akMod
 		elseif level >= 4 then
-			ap = iKS.apFromDungeons[dif].a*akMod
+			ap = iKS.apFromDungeons[dif].a*iKS.akMod
 		else
-			ap = iKS.apFromDungeons[dif].p*akMod
+			ap = iKS.apFromDungeons[dif].p*iKS.akMod
 		end
 		if onlyNumber then
 			return ap/1e9
 		else
 			return string.format('%.2fB', ap/1e9)
 		end
-	elseif iKeystonesConfig.ak and level then
-		local akMod
-		if current then
-			akMod = iKS.akMods[iKeystonesConfig.ak]/100
-		else
-			akMod = iKS.akMods[(iKeystonesConfig.ak <55 and iKeystonesConfig.ak+1) or 55]/100
-		end
+	elseif level then
 		local ap
 		if level >= 15 then
-			ap = (5000+(level-15)*400)*akMod
+			ap = (5000+(level-15)*400)*iKS.akMod
 		elseif level >= 10 then
-			ap = (3125+(level-10)*400)*akMod
+			ap = (3125+(level-10)*400)*iKS.akMod
 		elseif level >= 7 then
-			ap = 2150*akMod
+			ap = 2150*iKS.akMod
 		elseif level >= 4 then
-			ap = 1925*akMod
+			ap = 1925*iKS.akMod
 		elseif level > 0 then
-			ap = 1250*akMod
+			ap = 1250*iKS.akMod
 		end
 		if onlyNumber then
 			return ap and ap/1e9 or 0
@@ -342,7 +319,7 @@ function addon:PLAYER_LOGIN()
 	player = UnitGUID('player')
 	C_ChallengeMode.RequestMapInfo()
 	iKS:scanInventory()
-	if iKeystonesDB[player].canLoot then
+	if iKeystonesDB[player] and iKeystonesDB[player].canLoot then
 		addon:RegisterEvent('QUEST_LOG_UPDATE')
 	elseif not IsQuestFlaggedCompleted(44554) then
 		addon:RegisterEvent('ADDON_LOADED')
@@ -382,6 +359,9 @@ function addon:ADDON_LOADED(addonName)
 				},
 			}
 		end
+		if iKeystonesConfig.ak then -- remove old ak stuff from wtf file
+			iKeystonesConfig.ak = nil
+		end
 	elseif addonName == 'Blizzard_ChallengesUI' then
 		addon:UnregisterEvent('ADDON_LOADED')
 		local q = C_ChallengeMode.IsWeeklyRewardAvailable()
@@ -396,12 +376,6 @@ function addon:BAG_UPDATE()
 end
 function addon:CHALLENGE_MODE_MAPS_UPDATE()
 	iKS:scanCharacterMaps()
-end
-function addon:ARTIFACT_UPDATE()
-    local c = C_ArtifactUI.GetArtifactKnowledgeLevel()
-    if c then
-		iKeystonesConfig.ak = c
-	end
 end
 function addon:QUEST_LOG_UPDATE()
 	if IsQuestFlaggedCompleted(44554) then
