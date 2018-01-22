@@ -99,6 +99,40 @@ iKS.keystonesToMapIDs = {
 	[234] = 1651, -- Return to Karazhan: Upper
 	[239] = 1753, -- The Seat of the Triumvirate
 }
+--[[ Current affixes
+Level4:
+Bolstering 7
+Raging 6
+Sanguine 8
+Teeming 5
+Bursting 11
+
+Level7:
+Necrotic 4
+Skittish 2
+Volcanic 3
+Explosive 13
+Quaking 14
+Grievous 12
+
+Level10:
+Fortified 10
+Tyrannical 9
+--]]
+iKS.affixCycles = {
+	{6,3,9}, -- Raging, Volcanic, Tyrannical
+	{5,13,10}, -- Teeming, Explosive, Fortified
+	{7,12,9}, -- Bolstering, Grievous, Tyrannical
+	{8,3,10}, -- Sanguine, Volcanic, Fortified
+	{11,2,9}, -- Bursting, Skittish, Tyrannical
+	{5,14,10}, -- Teeming, Quaking, Fortified
+	{6,4,9}, -- Raging, Necrotic, Tyrannical
+	{7,2,10}, -- Bolstering, Skittish, Fortified
+	{5,4,9}, -- Teeming, Necrotic, Tyrannical
+	{8,12,10}, -- Sanguine, Grievous, Fortified
+	{7,13,9}, -- Bolstering, Explosive, Tyrannical
+	{11,14,10}, -- Bursting, Quaking, Fortified
+}
 iKS.akMod = 630000100/100
 
 function iKS:getAP(level, map, current, onlyNumber)
@@ -651,7 +685,7 @@ function iKS:addToTooltip(self, map, keyLevel)
 	map = tonumber(map)
 	keyLevel = tonumber(keyLevel)
 	self:AddLine(' ')
-	self:AddDoubleLine(string.format('Items: %s |cff00ff00+1|r', (keyLevel > 10 and 2+(keyLevel-10)*.4 or 2)), 'ilvl: ' .. (iKS.itemLevels[keyLevel] or iKS.itemLevels[iKS.currentMax]))
+	self:AddDoubleLine(string.format('Items: %s |cff00ff00+1|r', (keyLevel > iKS.currentMax and 2+(keyLevel-iKS.currentMax)*.4 or 2)), 'ilvl: ' .. (iKS.itemLevels[keyLevel] or iKS.itemLevels[iKS.currentMax]))
 	if keyLevel > iKeystonesDB[player].maxCompleted then
 		local weeklyDif = iKS:getAP(keyLevel, nil, nil, true) - iKS:getAP(iKeystonesDB[player].maxCompleted, nil, nil, true)
 		self:AddDoubleLine(string.format('AP: |cff00ff00%.2f|rB', iKS:getAP(keyLevel, map,nil,true)), string.format('Weekly: |cff00ff00+%.2f|rB', weeklyDif))
@@ -683,6 +717,9 @@ ItemRefTooltip:HookScript('OnTooltipSetItem', itemRefScanning)
 SLASH_IKEYSTONES1 = "/ikeystones"
 SLASH_IKEYSTONES2 = "/iks"
 SlashCmdList["IKEYSTONES"] = function(msg)
+	if msg then
+		msg = string.lower(msg)
+	end
 	if msg and msg == 'reset' then
 		iKeystonesDB = nil
 		iKeystonesDB = {}
@@ -701,6 +738,17 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 				C_ChallengeMode.SlotKeystone()
 			end
 		end)
+	elseif msg and (msg == 'next' or msg == 'n') then
+		for i = 1, #iKS.affixCycles do
+			if iKS.affixCycles[i][1] == iKeystonesConfig.aff.aff4.a and iKS.affixCycles[i][2] == iKeystonesConfig.aff.aff7.a and iKS.affixCycles[i][3] == iKeystonesConfig.aff.aff10.a then
+				local nextCycle = i+1 <= #iKS.affixCycles and i+1 or 1
+				local aff1 = C_ChallengeMode.GetAffixInfo(iKS.affixCycles[nextCycle][1])
+				local aff2 = C_ChallengeMode.GetAffixInfo(iKS.affixCycles[nextCycle][2])
+				local aff3 = C_ChallengeMode.GetAffixInfo(iKS.affixCycles[nextCycle][3])
+				print(string.format('iKS: Next cycle : %s, %s, %s.',aff1, aff2, aff3))
+				break
+			end
+		end
 	else
 		iKS:printKeystones()
 	end
