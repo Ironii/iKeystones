@@ -869,7 +869,7 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 					local aff2 = C_ChallengeMode.GetAffixInfo(iKS.affixCycles[nextCycle][2])
 					local aff3 = C_ChallengeMode.GetAffixInfo(iKS.affixCycles[nextCycle][3])
 					print(string.format('iKS: Next cycle : %s, %s, %s.',aff1, aff2, aff3))
-					break
+					return
 				end
 			end
 			print(string.format('iKS: Uknown cycle, contact author'))
