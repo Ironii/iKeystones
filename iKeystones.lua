@@ -365,9 +365,10 @@ function iKS:printKeystones()
 		print(str)
 	end
 end
-function iKS:PasteKeysToChat(all,channel)
+function iKS:PasteKeysToChat(all,channel, level)
 	if all then -- All keys for this faction
 		local i = 0
+		local totalCounter = 0
 		local str = ''
 		local faction = UnitFactionGroup('player')
 		local msgs = {}
@@ -378,20 +379,29 @@ function iKS:PasteKeysToChat(all,channel)
 				i = 0
 			end
 			if data.faction == faction then
-				if i > 0 then
-					str = str .. ' - '
+				if not level or (level and data.key.level and data.key.level >= level) then
+					if i > 0 then
+						str = str .. ' - '
+					end
+					local itemLink = ''
+					if data.key.map then
+						itemLink = string.format('%s (%s)', iKS:getZoneInfo(data.key.map), data.key.level)
+					else
+						itemLink = UNKNOWN
+					end
+					str = str..string.format('%s: %s', data.name, itemLink)
+					i = i + 1
+					totalCounter = totalCounter + 1
 				end
-				local itemLink = ''
-				if data.key.map then
-					itemLink = string.format('%s (%s)', iKS:getZoneInfo(data.key.map), data.key.level)
-				else
-					itemLink = UNKNOWN
-				end
-				str = str..string.format('%s: %s', data.name, itemLink)
-				i = i + 1
 			end
 		end
-		SendChatMessage(str, channel)
+		if totalCounter > 0 then
+			if i > 0 then
+				SendChatMessage(str, channel)
+			end
+		elseif level then
+			SendChatMessage("No keystones at or above " .. level..".", channel)
+		end
 	else -- Only this char
 		local data = iKeystonesDB[player]
 		if data then
@@ -486,12 +496,13 @@ function addon:QUEST_LOG_UPDATE()
 	end
 end
 local function ChatHandling(msg, channel)
-	if msg and (string.lower(msg) == '.allkeys' or string.lower(msg) == '.keys') then
-		if string.lower(msg) == '.allkeys' then
-			iKS:PasteKeysToChat(true,channel)
-		else
-			iKS:PasteKeysToChat(false,channel)
-		end
+	if not msg then return end -- not sure if this can even happen, maybe?
+	msg = msg:lower()
+	if msg == '.keys' then
+		iKS:PasteKeysToChat(false,channel)
+	elseif msg:find('^.allkeys') then
+		local level = msg:match('^.allkeys (%d*)')
+		iKS:PasteKeysToChat(true,channel,tonumber(level))
 	end
 end
 function addon:CHAT_MSG_GUILD(msg)
