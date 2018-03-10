@@ -9,15 +9,15 @@ addon:RegisterEvent('BAG_UPDATE')
 addon:RegisterEvent('CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN')
 
 --Chat events
-addon:RegisterEvent('CHAT_MSG_INSTANCE')
-addon:RegisterEvent('CHAT_MSG_INSTANCE_LEADER')
+--addon:RegisterEvent('CHAT_MSG_INSTANCE')
+--addon:RegisterEvent('CHAT_MSG_INSTANCE_LEADER')
 addon:RegisterEvent('CHAT_MSG_PARTY')
 addon:RegisterEvent('CHAT_MSG_PARTY_LEADER')
-addon:RegisterEvent('CHAT_MSG_RAID')
-addon:RegisterEvent('CHAT_MSG_RAID_LEADER')
-addon:RegisterEvent('CHAT_MSG_GUILD')
-addon:RegisterEvent('CHAT_MSG_GUILD_LEADER')
-addon:RegisterEvent('CHAT_MSG_OFFICER')
+--addon:RegisterEvent('CHAT_MSG_RAID')
+--addon:RegisterEvent('CHAT_MSG_RAID_LEADER')
+--addon:RegisterEvent('CHAT_MSG_GUILD')
+--addon:RegisterEvent('CHAT_MSG_GUILD_LEADER')
+--addon:RegisterEvent('CHAT_MSG_OFFICER')
 
 
 local iKS = {}
@@ -403,8 +403,12 @@ function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel)
 			if i > 0 then
 				SendChatMessage(str, channel)
 			end
-		elseif level then
-			SendChatMessage("No keystones at or above " .. level..".", channel)
+		elseif exactLevel then
+			SendChatMessage("No keystones at " .. exactLevel..".", channel)
+		elseif minLevel and not maxLevel then
+			SendChatMessage("No keystones at or above " .. minLevel..".", channel)
+		elseif minLevel and maxLevel then
+			SendChatMessage("No keystones between "..minLevel.." and "..maxLevel..".", channel)
 		else
 			SendChatMessage("No keystones.", channel)
 		end
