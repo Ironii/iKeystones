@@ -257,7 +257,7 @@ function iKS:scanCharacterMaps()
 	end
 	iKeystonesDB[player].maxCompleted = maxCompleted
 end
-function iKS:scanInventory(requestingSlots)
+function iKS:scanInventory(requestingSlots, requestingItemLink)
 	if not iKS:createPlayer() then return end
 	for bagID = 0, 4 do
 		for invID = 1, GetContainerNumSlots(bagID) do
@@ -267,6 +267,9 @@ function iKS:scanInventory(requestingSlots)
 					return bagID, invID
 				end
 				local itemLink = GetContainerItemLink(bagID, invID)
+				if requestingItemLink then
+					return itemLink
+				end
 				local map, keyLevel, l4,l7,l10 = string.match(itemLink, 'keystone:(%d+):(%d+):(%d+):(%d+):(%d+)')
 				l4 = tonumber(l4)
 				l7 = tonumber(l7)
@@ -416,11 +419,14 @@ function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel)
 		local data = iKeystonesDB[player]
 		if data then
 			if data.key.map then
-				itemLink = string.format('|Hkeystone:%d:%d:%d:%d:%d|h[%s (%s)]|h', data.key.map, data.key.level, data.key.affix4, data.key.affix7, data.key.affix10,iKS:getZoneInfo(data.key.map), data.key.level)
+				local itemLink = iKS:scanInventory(false, true)
+				if itemLink then -- nil check
+					SendChatMessage(itemLink, channel)
+				end
+				--itemLink = string.format('|cffa335ee|Hkeystone:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', data.key.map, data.key.level, data.key.affix4, data.key.affix7, data.key.affix10,iKS:getZoneInfo(data.key.map), data.key.level)
 			else
-				itemLink = UNKNOWN
+				SendChatMessage(UNKNOWN, channel)
 			end
-			SendChatMessage(itemLink, channel)
 		end
 	end
 end
