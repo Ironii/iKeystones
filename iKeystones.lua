@@ -365,7 +365,12 @@ function iKS:printKeystones()
 		print(str)
 	end
 end
-function iKS:PasteKeysToChat(all,channel, level)
+function iKS:shouldReportKey(KeyLevel, exactLevel, minLevel, maxLevel)
+	if not exactLevel and not minLevel and not maxLevel then return true end
+	if exactLevel then if KeyLevel == exactLevel then return true else return end end
+	if minLevel then if KeyLevel >= minLevel and (not maxLevel or (maxLevel and KeyLevel <= maxLevel)) then return true else return end end
+end
+function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel)
 	if all then -- All keys for this faction
 		local i = 0
 		local totalCounter = 0
@@ -379,19 +384,18 @@ function iKS:PasteKeysToChat(all,channel, level)
 				i = 0
 			end
 			if data.faction == faction then
-				if not level or (level and data.key.level and data.key.level >= level) then
+				--if not level or (level and data.key.level and data.key.level >= level) then
+				if iKS:shouldReportKey(data.key.level, exactLevel, minLevel, maxLevel) then
 					if i > 0 then
 						str = str .. ' - '
 					end
 					local itemLink = ''
 					if data.key.map then
 						itemLink = string.format('%s (%s)', iKS:getZoneInfo(data.key.map), data.key.level)
-					else
-						itemLink = UNKNOWN
+						str = str..string.format('%s: %s', data.name, itemLink)
+						i = i + 1
+						totalCounter = totalCounter + 1
 					end
-					str = str..string.format('%s: %s', data.name, itemLink)
-					i = i + 1
-					totalCounter = totalCounter + 1
 				end
 			end
 		end
@@ -401,12 +405,14 @@ function iKS:PasteKeysToChat(all,channel, level)
 			end
 		elseif level then
 			SendChatMessage("No keystones at or above " .. level..".", channel)
+		else
+			SendChatMessage("No keystones.", channel)
 		end
 	else -- Only this char
 		local data = iKeystonesDB[player]
 		if data then
 			if data.key.map then
-				itemLink = string.format('%s|Hkeystone:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', iKS:getItemColor(data.key.level), data.key.map, data.key.level, data.key.affix4, data.key.affix7, data.key.affix10,iKS:getZoneInfo(data.key.map), data.key.level)
+				itemLink = string.format('|Hkeystone:%d:%d:%d:%d:%d|h[%s (%s)]|h', data.key.map, data.key.level, data.key.affix4, data.key.affix7, data.key.affix10,iKS:getZoneInfo(data.key.map), data.key.level)
 			else
 				itemLink = UNKNOWN
 			end
@@ -502,7 +508,18 @@ local function ChatHandling(msg, channel)
 		iKS:PasteKeysToChat(false,channel)
 	elseif msg:find('^.allkeys') then
 		local level = msg:match('^.allkeys (%d*)')
-		iKS:PasteKeysToChat(true,channel,tonumber(level))
+		if msg:match('^.allkeys (%d*)%+$') then -- .allkeys x+
+			local level = msg:match('^.allkeys (%d*)%+$')
+			iKS:PasteKeysToChat(true,channel,nil,tonumber(level))
+		elseif msg:match('^.allkeys (%d*)%-(%d*)$') then -- .allkeys x-y
+			local minlevel, maxlevel = msg:match('^.allkeys (%d*)%-(%d*)$')
+			iKS:PasteKeysToChat(true,channel,nil, tonumber(minlevel), tonumber(maxlevel))
+		elseif msg:match('^.allkeys (%d*)') then -- .allkeys 15
+			local level = msg:match('^.allkeys (%d*)')
+			iKS:PasteKeysToChat(true,channel,tonumber(level))
+		else
+			iKS:PasteKeysToChat(true,channel)
+		end
 	end
 end
 function addon:CHAT_MSG_GUILD(msg)
