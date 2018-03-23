@@ -369,6 +369,7 @@ function iKS:printKeystones()
 	end
 end
 function iKS:shouldReportKey(KeyLevel, exactLevel, minLevel, maxLevel)
+	if not KeyLevel then return false end
 	if not exactLevel and not minLevel and not maxLevel then return true end
 	if exactLevel then if KeyLevel == exactLevel then return true else return end end
 	if minLevel then if KeyLevel >= minLevel and (not maxLevel or (maxLevel and KeyLevel <= maxLevel)) then return true else return end end
