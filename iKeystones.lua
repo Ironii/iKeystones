@@ -18,7 +18,7 @@ addon:RegisterEvent('CHAT_MSG_PARTY_LEADER')
 --addon:RegisterEvent('CHAT_MSG_GUILD')
 --addon:RegisterEvent('CHAT_MSG_GUILD_LEADER')
 --addon:RegisterEvent('CHAT_MSG_OFFICER')
-
+--.weekly 15+
 
 local iKS = {}
 iKS.frames = {}
@@ -40,6 +40,7 @@ iKS.weeklyChestItemLevels = {
 	[14] = 955,
 	[15] = 960,
 }
+
 iKS.itemLevels = {
 	[2] = 890,
 	[3] = 890,
@@ -136,7 +137,7 @@ iKS.affixCycles = {
 	{6,3,9}, -- Raging, Volcanic, Tyrannical
 	{5,13,10}, -- Teeming, Explosive, Fortified
 	{7,12,9}, -- Bolstering, Grievous, Tyrannical
-	{8,3,10}, -- Sanguine, Volcanic, Fortified
+	{8,4,10}, -- Sanguine, Necrotic, Fortified
 	{11,2,9}, -- Bursting, Skittish, Tyrannical
 	{5,14,10}, -- Teeming, Quaking, Fortified
 	{6,4,9}, -- Raging, Necrotic, Tyrannical
@@ -340,7 +341,7 @@ function iKS:getItemColor(level)
 	end
 end
 function iKS:getZoneInfo(mapID, zone)
-	local name, arg2, timelimit = C_ChallengeMode.GetMapInfo(mapID)
+	local name, arg2, timeLimit = C_ChallengeMode.GetMapInfo(mapID)
 	if zone then
 		return iKS.keystonesToMapIDs[mapID]
 	else
@@ -374,7 +375,7 @@ function iKS:shouldReportKey(KeyLevel, exactLevel, minLevel, maxLevel)
 	if exactLevel then if KeyLevel == exactLevel then return true else return end end
 	if minLevel then if KeyLevel >= minLevel and (not maxLevel or (maxLevel and KeyLevel <= maxLevel)) then return true else return end end
 end
-function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel)
+function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel, requestingWeekly)
 	if all then -- All keys for this faction
 		local i = 0
 		local totalCounter = 0
@@ -389,16 +390,18 @@ function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel)
 			end
 			if data.faction == faction then
 				--if not level or (level and data.key.level and data.key.level >= level) then
-				if iKS:shouldReportKey(data.key.level, exactLevel, minLevel, maxLevel) then
-					if i > 0 then
-						str = str .. ' - '
-					end
-					local itemLink = ''
-					if data.key.map then
-						itemLink = string.format('%s (%s)', iKS:getZoneInfo(data.key.map), data.key.level)
-						str = str..string.format('%s: %s', data.name, itemLink)
-						i = i + 1
-						totalCounter = totalCounter + 1
+				if not requestingWeekly or (requestingWeekly and data.maxCompleted < iKS.currentMax) then
+					if iKS:shouldReportKey(data.key.level, exactLevel, minLevel, maxLevel) then
+						local itemLink = ''
+						if data.key.map then
+							if i > 0 then
+								str = str .. ' - '
+							end
+							itemLink = string.format('%s (%s)', iKS:getZoneInfo(data.key.map), data.key.level)
+							str = str..string.format('%s: %s', data.name, itemLink)
+							i = i + 1
+							totalCounter = totalCounter + 1
+						end
 					end
 				end
 			end
@@ -407,13 +410,13 @@ function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel)
 			if i > 0 then
 				SendChatMessage(str, channel)
 			end
-		elseif exactLevel then
+		elseif exactLevel and not requestingWeekly then
 			SendChatMessage("No keystones at " .. exactLevel..".", channel)
-		elseif minLevel and not maxLevel then
+		elseif minLevel and not maxLevel and not requestingWeekly  then
 			SendChatMessage("No keystones at or above " .. minLevel..".", channel)
-		elseif minLevel and maxLevel then
+		elseif minLevel and maxLevel and not requestingWeekly  then
 			SendChatMessage("No keystones between "..minLevel.." and "..maxLevel..".", channel)
-		else
+		elseif not requestingWeekly then
 			SendChatMessage("No keystones.", channel)
 		end
 	else -- Only this char
@@ -517,6 +520,8 @@ local function ChatHandling(msg, channel)
 	msg = msg:lower()
 	if msg == '.keys' then
 		iKS:PasteKeysToChat(false,channel)
+	elseif msg == '.weekly' then
+		iKS:PasteKeysToChat(true,channel,nil,iKS.currentMax,nil, true)
 	elseif msg:find('^.allkeys') then
 		local level = msg:match('^.allkeys (%d*)')
 		if msg:match('^.allkeys (%d*)%+$') then -- .allkeys x+
@@ -911,7 +916,7 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 					return
 				end
 			end
-			print(string.format('iKS: Uknown cycle, contact author'))
+			print(string.format('iKS: Unknown cycle, contact author'))
 		elseif msg == 'ignore' or msg == 'i' then
 			iKeystonesConfig.ignoreList[player] = true
 			iKeystonesDB[player] = nil
