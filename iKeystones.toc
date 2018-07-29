@@ -1,8 +1,8 @@
-## Interface: 70300
+## Interface: 80000
 ## Title: iKeystones
 ## Notes: Tracks your keystones
 ## Author: Ironi
-## Version: 1.600
+## Version: 1.700
 ## DefaultState: enabled
 
 ## SavedVariables: iKeystonesDB, iKeystonesConfig

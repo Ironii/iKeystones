@@ -5,58 +5,23 @@ end)
 addon:RegisterEvent('ADDON_LOADED')
 addon:RegisterEvent('CHALLENGE_MODE_MAPS_UPDATE')
 addon:RegisterEvent('PLAYER_LOGIN')
-addon:RegisterEvent('BAG_UPDATE')
 addon:RegisterEvent('CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN')
+addon:RegisterEvent('MYTHIC_PLUS_CURRENT_AFFIX_UPDATE')
+addon:RegisterEvent('MYTHIC_PLUS_NEW_WEEKLY_RECORD')
+addon:RegisterEvent('ITEM_PUSH')
+addon:RegisterEvent('BAG_UPDATE')
 
 --Chat events
---addon:RegisterEvent('CHAT_MSG_INSTANCE')
---addon:RegisterEvent('CHAT_MSG_INSTANCE_LEADER')
+
 addon:RegisterEvent('CHAT_MSG_PARTY')
 addon:RegisterEvent('CHAT_MSG_PARTY_LEADER')
---addon:RegisterEvent('CHAT_MSG_RAID')
---addon:RegisterEvent('CHAT_MSG_RAID_LEADER')
---addon:RegisterEvent('CHAT_MSG_GUILD')
---addon:RegisterEvent('CHAT_MSG_GUILD_LEADER')
---addon:RegisterEvent('CHAT_MSG_OFFICER')
---.weekly 15+
+
 
 local iKS = {}
+iKS.currentMax = 0
 iKS.frames = {}
 local player = UnitGUID('player')
-iKS.currentMax = 15
-iKS.weeklyChestItemLevels = {
-	[2] = 905,
-	[3] = 910,
-	[4] = 915,
-	[5] = 920,
-	[6] = 920,
-	[7] = 925,
-	[8] = 925,
-	[9] = 930,
-	[10] = 935,
-	[11] = 940,
-	[12] = 945,
-	[13] = 950,
-	[14] = 955,
-	[15] = 960,
-}
 
-iKS.itemLevels = {
-	[2] = 890,
-	[3] = 890,
-	[4] = 895,
-	[5] = 900,
-	[6] = 905,
-	[7] = 905,
-	[8] = 910,
-	[9] = 910,
-	[10] = 915,
-	[11] = 920,
-	[12] = 925,
-	[13] = 930,
-	[14] = 935,
-	[15] = 940,
-}
 iKS.apFromDungeons = {
 	[1] = { -- Lesser
 		['p'] = 175, -- Lesser Pathfinder's Symbol
@@ -113,55 +78,57 @@ iKS.keystonesToMapIDs = {
 	[234] = 1651, -- Return to Karazhan: Upper
 	[239] = 1753, -- The Seat of the Triumvirate
 }
---[[ Current affixes
-Level4:
-Bolstering 7
-Raging 6
-Sanguine 8
-Teeming 5
-Bursting 11
+iKS.currentAffixes = {0,0,0,0}
+local sortedAffixes = {
+	[10] = 1, --Fortified
+	[9] = 1, --Tyrannical
 
-Level7:
-Necrotic 4
-Skittish 2
-Volcanic 3
-Explosive 13
-Quaking 14
-Grievous 12
+	[7] = 2, --Bolstering
+	[6] = 2, --Raging
+	[8] = 2, --Sanguine
+	[5] = 2, --Teeming
+	[11] = 2, --Bursting
 
-Level10:
-Fortified 10
-Tyrannical 9
---]]
-iKS.affixCycles = {
-	{6,3,9}, -- Raging, Volcanic, Tyrannical
-	{5,13,10}, -- Teeming, Explosive, Fortified
-	{7,12,9}, -- Bolstering, Grievous, Tyrannical
-	{8,4,10}, -- Sanguine, Necrotic, Fortified
-	{11,2,9}, -- Bursting, Skittish, Tyrannical
-	{5,14,10}, -- Teeming, Quaking, Fortified
-	{6,4,9}, -- Raging, Necrotic, Tyrannical
-	{7,2,10}, -- Bolstering, Skittish, Fortified
-	{5,3,9}, -- Teeming, Volanic, Tyrannical
-	{8,12,10}, -- Sanguine, Grievous, Fortified
-	{7,13,9}, -- Bolstering, Explosive, Tyrannical
-	{11,14,10}, -- Bursting, Quaking, Fortified
+	[4] = 3, --Necrotic
+	[2] = 3, --Skittish
+	[3] = 3, --Volcanic
+	[13] = 3, --Explosive
+	[14] = 3, --Quaking
+	[12] = 3, --Grievous
+
+	--[15] = ?, --Relentless
+	[16] = 4, --Infested
 }
-iKS.akMod = 630000100/100
+
+iKS.affixCycles = {
+	{9,6,3}, -- Raging, Volcanic, Tyrannical
+	{10,5,13}, -- Teeming, Explosive, Fortified
+	{9,7,12}, -- Bolstering, Grievous, Tyrannical
+	{10,8,4}, -- Sanguine, Necrotic, Fortified
+	{9,11,2}, -- Bursting, Skittish, Tyrannical
+	{10,5,14}, -- Teeming, Quaking, Fortified
+	{9,6,4}, -- Raging, Necrotic, Tyrannical
+	{10,7,2}, -- Bolstering, Skittish, Fortified
+	{9,5,3}, -- Teeming, Volanic, Tyrannical
+	{10,8,12}, -- Sanguine, Grievous, Fortified
+	{9,7,13}, -- Bolstering, Explosive, Tyrannical
+	{10,11,14}, -- Bursting, Quaking, Fortified
+}
+--C_MythicPlus.GetLastWeeklyBestInformation();
 
 function iKS:getAP(level, map, current, onlyNumber)
 	if level and map then
 		local dif = iKS.apFromDungeons.dif[map] or 2 -- default to normal
 		if level >= 15 then
-			ap = (iKS.apFromDungeons[dif].m+(level-15)*iKS.apFromDungeons[dif].b)*iKS.akMod
+			ap = (iKS.apFromDungeons[dif].m+(level-15)*iKS.apFromDungeons[dif].b)
 		elseif level >= 10 then
-			ap = (iKS.apFromDungeons[dif].c+(level-10)*iKS.apFromDungeons[dif].b)*iKS.akMod
+			ap = (iKS.apFromDungeons[dif].c+(level-10)*iKS.apFromDungeons[dif].b)
 		elseif level >= 7 then
-			ap = iKS.apFromDungeons[dif].h*iKS.akMod
+			ap = iKS.apFromDungeons[dif].h
 		elseif level >= 4 then
-			ap = iKS.apFromDungeons[dif].a*iKS.akMod
+			ap = iKS.apFromDungeons[dif].a
 		else
-			ap = iKS.apFromDungeons[dif].p*iKS.akMod
+			ap = iKS.apFromDungeons[dif].p
 		end
 		if onlyNumber then
 			return ap/1e9
@@ -171,15 +138,15 @@ function iKS:getAP(level, map, current, onlyNumber)
 	elseif level then
 		local ap
 		if level >= 15 then
-			ap = (5000+(level-15)*400)*iKS.akMod
+			ap = (5000+(level-15)*400)
 		elseif level >= 10 then
-			ap = (3125+(level-10)*400)*iKS.akMod
+			ap = (3125+(level-10)*400)
 		elseif level >= 7 then
-			ap = 2150*iKS.akMod
+			ap = 2150
 		elseif level >= 4 then
-			ap = 1925*iKS.akMod
+			ap = 1925
 		elseif level > 0 then
-			ap = 1250*iKS.akMod
+			ap = 1250
 		end
 		if onlyNumber then
 			return ap and ap/1e9 or 0
@@ -202,20 +169,7 @@ function iKS:weeklyReset()
 		iKeystonesDB[guid].key = {}
 		iKeystonesDB[guid].maxCompleted = 0
 	end
-	iKeystonesConfig.aff = {
-		aff4 = {
-			a = 0,
-			t = false,
-		},
-		aff7 = {
-			a = 0,
-			t = false,
-		},
-		aff10 = {
-			a = 0,
-			t = false,
-		},
-	}
+
 	iKS:scanInventory()
 	addon:RegisterEvent('QUEST_LOG_UPDATE')
 end
@@ -245,87 +199,44 @@ function iKS:createPlayer()
 end
 function iKS:scanCharacterMaps()
 	if not iKS:createPlayer() then return end
-	local maps = C_ChallengeMode.GetMapTable()
+	--[[ local maps = C_ChallengeMode.GetMapTable()
 	local maxCompleted = 0
 	for _, mapID in pairs(maps) do
-		local _, _, level, affixes = C_ChallengeMode.GetMapPlayerStats(mapID)
+		local _, level, _, affixes = C_MythicPlus.GetWeeklyBestForMap(mapID)
 		if level and level > maxCompleted then
 			maxCompleted = level
 		end
-	end
-	if iKeystonesDB[player].maxCompleted and iKeystonesDB[player].maxCompleted > maxCompleted then
-		iKS:weeklyReset()
-	end
-	iKeystonesDB[player].maxCompleted = maxCompleted
+	end --]]
+	iKeystonesDB[player].maxCompleted = C_MythicPlus.GetWeeklyChestRewardLevel()
 end
 function iKS:scanInventory(requestingSlots, requestingItemLink)
 	if not iKS:createPlayer() then return end
-	for bagID = 0, 4 do
-		for invID = 1, GetContainerNumSlots(bagID) do
-			local itemID = GetContainerItemID(bagID, invID)
-			if itemID and itemID == 138019 then
-				if requestingSlots then
-					return bagID, invID
+	local _map = C_MythicPlus.GetOwnedKeystoneChallengeMapID()
+	local _level = C_MythicPlus.GetOwnedKeystoneLevel()
+	if not _map or not _level then return end
+	if requestingSlots or requestingItemLink then
+		for bagID = 0, 4 do
+			for invID = 1, GetContainerNumSlots(bagID) do
+				local itemID = GetContainerItemID(bagID, invID)
+				if itemID and itemID == 138019 then
+					if requestingSlots then
+						return bagID, invID
+					end
+					return GetContainerItemLink(bagID, invID)
 				end
-				local itemLink = GetContainerItemLink(bagID, invID)
-				if requestingItemLink then
-					return itemLink
-				end
-				local map, keyLevel, l4,l7,l10 = string.match(itemLink, 'keystone:(%d+):(%d+):(%d+):(%d+):(%d+)')
-				l4 = tonumber(l4)
-				l7 = tonumber(l7)
-				l10 = tonumber(l10)
-				iKS:checkAffs(l4,l7,l10,true)
-				iKeystonesDB[player].key = {
-					['map'] = tonumber(map),
-					['level'] = tonumber(keyLevel),
-					['affix4'] = l4,
-					['affix7'] = l7,
-					['affix10'] = l10,
-				}
-				keyLevel = tonumber(keyLevel)
-				if iKS.keyLevel and iKS.keyLevel < keyLevel then
-					local itemLink = string.format('%s|Hkeystone:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', iKS:getItemColor(keyLevel), map, keyLevel, l4, l7, l10,iKS:getZoneInfo(map), keyLevel)
-					print('iKS: New keystone - ' .. itemLink)
-				end
-				iKS.keyLevel = keyLevel
-				iKS.mapID = iKeystonesDB[player].key.map
-				return
 			end
 		end
 	end
-end
-function iKS:checkAffs(aff4,aff7,aff10,trusted)
-	if trusted then
-		if aff4 > 0 then
-			iKeystonesConfig.aff.aff4 = {
-				a = aff4,
-				t = true,
-			}
-		end
-		if aff7 > 0 then
-			iKeystonesConfig.aff.aff7 = {
-				a = aff7,
-				t = true,
-			}
-		end
-		if aff10 > 0 then
-			iKeystonesConfig.aff.aff10 = {
-				a = aff10,
-				t = true,
-			}
-		end
-	else
-		if iKeystonesConfig.aff.aff4.a == 0 and not iKeystonesConfig.aff.aff4.t then
-			iKeystonesConfig.aff.aff4.a = aff4
-		end
-		if iKeystonesConfig.aff.aff7.a == 0 and not iKeystonesConfig.aff.aff7.t then
-			iKeystonesConfig.aff.aff7.a = aff7
-		end
-		if iKeystonesConfig.aff.aff10.a == 0 and not iKeystonesConfig.aff.aff10.t then
-			iKeystonesConfig.aff.aff10.a = aff10
-		end
+	iKeystonesDB[player].key = {
+		['map'] = _map,
+		['level'] = _level,
+	}
+	if iKS.keyLevel and iKS.keyLevel < _level then
+		local itemLink = iKS.getKeystoneLink(_level, _map)
+		print('iKS: New keystone - ' .. itemLink)
 	end
+	iKS.keyLevel = C_MythicPlus.GetOwnedKeystoneLevel()
+	iKS.mapID = C_MythicPlus.GetOwnedKeystoneChallengeMapID()
 end
 function iKS:getItemColor(level)
 	if level < 4 then	-- Epic
@@ -341,19 +252,22 @@ function iKS:getItemColor(level)
 	end
 end
 function iKS:getZoneInfo(mapID, zone)
-	local name, arg2, timeLimit = C_ChallengeMode.GetMapInfo(mapID)
+	local name, arg2, timeLimit = C_ChallengeMode.GetMapUIInfo(mapID)
 	if zone then
 		return iKS.keystonesToMapIDs[mapID]
 	else
 		return name
 	end
 end
+function iKS:getKeystoneLink(keyLevel, map)
+	return string.format('%s|Hkeystone:%d:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', iKS:getItemColor(keyLevel), map, keyLevel, (keyLevel >= 4 and iKS.currentAffixes[2] or 0), (keyLevel >= 7 and iKS.currentAffixes[3] or 0), iKS.currentAffixes[1],(keyLevel >= 10 and iKS.currentAffixes[4] or 0), iKS:getZoneInfo(map), keyLevel)
+end
 function iKS:printKeystones()
 	local allCharacters = {}
 	for guid,data in pairs(iKeystonesDB) do
 		local itemLink = ''
 		if data.key.map then
-			itemLink = string.format('%s|Hkeystone:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', iKS:getItemColor(data.key.level), data.key.map, data.key.level, data.key.affix4, data.key.affix7, data.key.affix10,iKS:getZoneInfo(data.key.map), data.key.level)
+			itemLink = iKS:getKeystoneLink(data.key.level,data.key.map)
 		else
 			itemLink = UNKNOWN
 		end
@@ -364,7 +278,8 @@ function iKS:printKeystones()
 			str = string.format('|c%s%s-%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, data.server,itemLink,(data.maxCompleted >= iKS.currentMax and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
 		end
 		if data.maxCompleted > 0 then
-			str = str.. string.format('|r (%d) AP: %s', iKS.weeklyChestItemLevels[data.maxCompleted] or iKS.weeklyChestItemLevels[iKS.currentMax], iKS:getAP(data.maxCompleted))
+			local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(data.maxCompleted)
+			str = str.. string.format('|r (%d) AP: %s', ilvl, iKS:getAP(data.maxCompleted))
 		end
 		print(str)
 	end
@@ -426,11 +341,15 @@ function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel, reques
 				local itemLink = iKS:scanInventory(false, true)
 				if itemLink then -- nil check
 					SendChatMessage(itemLink, channel)
+				else
+					SendChatMessage(UNKNOWN, channel)
 				end
 				--itemLink = string.format('|cffa335ee|Hkeystone:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', data.key.map, data.key.level, data.key.affix4, data.key.affix7, data.key.affix10,iKS:getZoneInfo(data.key.map), data.key.level)
 			else
 				SendChatMessage(UNKNOWN, channel)
 			end
+		else
+			SendChatMessage(UNKNOWN, channel)
 		end
 	end
 end
@@ -446,8 +365,9 @@ function iKS:help()
 end
 function addon:PLAYER_LOGIN()
 	player = UnitGUID('player')
-	C_ChallengeMode.RequestMapInfo()
-	iKS:scanInventory()
+	C_MythicPlus.RequestCurrentAffixes()
+	C_MythicPlus.RequestMapInfo()
+    C_MythicPlus.RequestRewards()
 	if iKeystonesDB[player] and iKeystonesDB[player].canLoot then
 		addon:RegisterEvent('QUEST_LOG_UPDATE')
 	elseif not IsQuestFlaggedCompleted(44554) then
@@ -475,21 +395,10 @@ function addon:ADDON_LOADED(addonName)
 		if not iKeystonesConfig.ignoreList then
 			iKeystonesConfig.ignoreList = {}
 		end
-		if not iKeystonesConfig.aff then
-			iKeystonesConfig.aff = {
-				aff4 = {
-					a = 0,
-					t = false,
-				},
-				aff7 = {
-					a = 0,
-					t = false,
-				},
-				aff10 = {
-					a = 0,
-					t = false,
-				},
-			}
+		if not iKeystonesConfig.affstring then --remove old stuff and reset chars
+			iKeystonesDB = {}
+			iKeystonesConfig.aff = nil
+			iKeystonesConfig.affstring = ""
 		end
 		if iKeystonesConfig.ak then -- remove old ak stuff from wtf file
 			iKeystonesConfig.ak = nil
@@ -503,8 +412,57 @@ function addon:ADDON_LOADED(addonName)
 		end
 	end
 end
+function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
+	local temp = C_MythicPlus.GetCurrentAffixes()
+	if temp[1] then
+		iKS.currentAffixes[sortedAffixes[temp[1]]] = temp[1]
+	end
+	if temp[2] then
+		iKS.currentAffixes[sortedAffixes[temp[2]]] = temp[2]
+	end
+	if temp[3] then
+		iKS.currentAffixes[sortedAffixes[temp[3]]] = temp[3]
+	end
+	if temp[4] then
+		iKS.currentAffixes[sortedAffixes[temp[4]]] = temp[4]
+	end
+	local affstring = string.format("%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
+	if iKeystonesConfig.affstring ~= affstring then
+		iKeystonesConfig.affstring = affstring
+		iKS:weeklyReset()
+	end
+	if not iKS:createPlayer() then return end
+	local key = C_MythicPlus.GetOwnedKeystoneLevel()
+	local mapID = C_MythicPlus.GetOwnedKeystoneChallengeMapID()
+	iKS.keyLevel = key
+	iKS.mapID = mapID
+	iKeystonesDB[player].key = {
+		['map'] = mapID,
+		['level'] = key,
+	}
+	--Get max dynamically
+	local lastMax = 0
+	for i = 1, 30 do
+		local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(i)
+		if lastMax <= ilvl then
+			lastMax = ilvl
+		else
+			iKS.currentMax = i-1
+			break
+		end
+	end
+
+end
+function addon:MYTHIC_PLUS_NEW_WEEKLY_RECORD(mapChallengeModeID, completionMilliseconds, level)
+	iKS:scanCharacterMaps()
+end
 function addon:BAG_UPDATE()
 	iKS:scanInventory()
+end
+function addon:ITEM_PUSH(bag, id)
+	if id == 525134 then
+		iKS:scanInventory()
+	end
 end
 function addon:CHALLENGE_MODE_MAPS_UPDATE()
 	iKS:scanCharacterMaps()
@@ -608,10 +566,9 @@ local function chatFiltering(self, event, msg, ...)
 			local linkStuff = msg:sub(math.max(linkStart-11, 0))
 			local tempTable = {strsplit(':', linkStuff)}
 			tempTable[1] = iKS:getItemColor(tonumber(tempTable[3]), tonumber(tempTable[4])) .. '|Hkeystone'
-			local _, _, aff4,aff7,aff10 = string.match(linkStuff, 'keystone:(%d+):(%d+):(%d+):(%d+):(%d+)')
-			iKS:checkAffs(tonumber(aff4),tonumber(aff7),tonumber(aff10))
+
 			local fullString = table.concat(tempTable, ':')
-			fullString = string.gsub(fullString, '%[.-%]', string.format('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[2])), tonumber(tempTable[3])), 1)
+			fullString = string.gsub(fullString, '%[.-%]', string.format('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[3])), tonumber(tempTable[4])), 1)
 			return false, preLink..fullString, ...
 		end
 	end
@@ -740,18 +697,31 @@ function iKS:createMainWindow()
 		--Create affix slots
 		iKS.affixes = {}
 		local f = iKS.affixes
+		f.aff2 = CreateFrame('frame', nil , iKS.anchor)
+		f.aff2:SetSize(150,20)
+		f.aff2:SetBackdrop(iKS.bd)
+		f.aff2:SetBackdropColor(.1,.1,.1,.9)
+		f.aff2:SetBackdropBorderColor(0,0,0,1)
+		--f.aff4:SetPoint('TOPLEFT', iKS.anchor, 'BOTTOMLEFT', 0,0)
+
+		f.aff2.text = f.aff2:CreateFontString()
+		f.aff2.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+		f.aff2.text:SetPoint('CENTER', f.aff2, 'CENTER', 0,0)
+		f.aff2.text:SetText('Tyrannical')
+		--f.aff4.text:Show()
+
 		f.aff4 = CreateFrame('frame', nil , iKS.anchor)
 		f.aff4:SetSize(150,20)
 		f.aff4:SetBackdrop(iKS.bd)
 		f.aff4:SetBackdropColor(.1,.1,.1,.9)
 		f.aff4:SetBackdropBorderColor(0,0,0,1)
-		--f.aff4:SetPoint('TOPLEFT', iKS.anchor, 'BOTTOMLEFT', 0,0)
+		f.aff4:SetPoint('TOPLEFT', f.aff2, 'TOPRIGHT', 0,0)
 
 		f.aff4.text = f.aff4:CreateFontString()
 		f.aff4.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
 		f.aff4.text:SetPoint('CENTER', f.aff4, 'CENTER', 0,0)
-		f.aff4.text:SetText('Sanguine')
-		--f.aff4.text:Show()
+		f.aff4.text:SetText('Teeming')
+		--f.aff7.text:Show()
 
 		f.aff7 = CreateFrame('frame', nil , iKS.anchor)
 		f.aff7:SetSize(150,20)
@@ -764,19 +734,6 @@ function iKS:createMainWindow()
 		f.aff7.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
 		f.aff7.text:SetPoint('CENTER', f.aff7, 'CENTER', 0,0)
 		f.aff7.text:SetText('Volcanic')
-		--f.aff7.text:Show()
-
-		f.aff10 = CreateFrame('frame', nil , iKS.anchor)
-		f.aff10:SetSize(150,20)
-		f.aff10:SetBackdrop(iKS.bd)
-		f.aff10:SetBackdropColor(.1,.1,.1,.9)
-		f.aff10:SetBackdropBorderColor(0,0,0,1)
-		f.aff10:SetPoint('TOPLEFT', f.aff7, 'TOPRIGHT', 0,0)
-
-		f.aff10.text = f.aff10:CreateFontString()
-		f.aff10.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
-		f.aff10.text:SetPoint('CENTER', f.aff10, 'CENTER', 0,0)
-		f.aff10.text:SetText('Tyrannical')
 		--f.aff7.text:Show()
 	end
 	local i = 1
@@ -799,7 +756,8 @@ function iKS:createMainWindow()
 		end
 		f.key.text:SetText(v.key.level and string.format('%s%s (%s)|r', iKS:getItemColor(v.key.level), iKS:getZoneInfo(v.key.map), v.key.level) or '-')
 		f.max.text:SetText((v.maxCompleted >= iKS.currentMax and '|cff00ff00' .. v.maxCompleted) or (v.maxCompleted > 0 and v.maxCompleted) or '-')
-		f.ilvl.text:SetText(v.maxCompleted > 0 and (iKS.weeklyChestItemLevels[v.maxCompleted] or iKS.weeklyChestItemLevels[iKS.currentMax]) or '-')
+		local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(v.maxCompleted)
+		f.ilvl.text:SetText(v.maxCompleted > 0 and ilvl or '-')
 		f.ap.text:SetText(iKS:getAP(v.maxCompleted))
 		if f.name.text:GetWidth() > maxSizes.name then
 			maxSizes.name = f.name.text:GetWidth()
@@ -834,26 +792,27 @@ function iKS:createMainWindow()
 	local w = maxSizes.name+maxSizes.key+maxSizes.ap+100 --+max(50)+ilvl(50)
 	iKS.anchor:SetWidth(w)
 
-	iKS.affixes.aff4:ClearAllPoints()
-	iKS.affixes.aff4:SetPoint('TOPLEFT', iKS.frames[i].name, 'BOTTOMLEFT', 0,0)
-	iKS.affixes.aff4:SetWidth(w/3)
-	iKS.affixes.aff4.text:SetText(C_ChallengeMode.GetAffixInfo(iKeystonesConfig.aff.aff4.a) or UNKNOWN)
+	iKS.affixes.aff2:ClearAllPoints()
+	iKS.affixes.aff2:SetPoint('TOPLEFT', iKS.frames[i].name, 'BOTTOMLEFT', 0,0)
+	iKS.affixes.aff2:SetWidth(w/3)
+	iKS.affixes.aff2.text:SetText(C_ChallengeMode.GetAffixInfo(iKS.currentAffixes[1]))
 
-	iKS.affixes.aff10:SetWidth(w/3)
-	iKS.affixes.aff10:ClearAllPoints()
-	iKS.affixes.aff10:SetPoint('TOPRIGHT', iKS.frames[i].ap, 'BOTTOMRIGHT', 0,0)
-	iKS.affixes.aff10.text:SetText(C_ChallengeMode.GetAffixInfo(iKeystonesConfig.aff.aff10.a) or UNKNOWN)
-
+	iKS.affixes.aff7:SetWidth(w/3)
 	iKS.affixes.aff7:ClearAllPoints()
-	iKS.affixes.aff7:SetPoint('LEFT', iKS.affixes.aff4, 'RIGHT', 0,0)
-	iKS.affixes.aff7:SetPoint('RIGHT', iKS.affixes.aff10, 'LEFT', 0,0)
-	iKS.affixes.aff7.text:SetText(C_ChallengeMode.GetAffixInfo(iKeystonesConfig.aff.aff7.a) or UNKNOWN)
+	iKS.affixes.aff7:SetPoint('TOPRIGHT', iKS.frames[i].ap, 'BOTTOMRIGHT', 0,0)
+	iKS.affixes.aff7.text:SetText(C_ChallengeMode.GetAffixInfo(iKS.currentAffixes[3]))
+
+	iKS.affixes.aff4:ClearAllPoints()
+	iKS.affixes.aff4:SetPoint('LEFT', iKS.affixes.aff2, 'RIGHT', 0,0)
+	iKS.affixes.aff4:SetPoint('RIGHT', iKS.affixes.aff7, 'LEFT', 0,0)
+	iKS.affixes.aff4.text:SetText(C_ChallengeMode.GetAffixInfo(iKS.currentAffixes[2]))
 end
 function iKS:addToTooltip(self, map, keyLevel)
 	map = tonumber(map)
 	keyLevel = tonumber(keyLevel)
+	local wIlvl, ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(keyLevel)
 	self:AddLine(' ')
-	self:AddDoubleLine(string.format('Items: %s |cff00ff00+1|r', (keyLevel > iKS.currentMax and 2+(keyLevel-iKS.currentMax)*.4 or 2)), 'ilvl: ' .. (iKS.itemLevels[keyLevel] or iKS.itemLevels[iKS.currentMax]))
+	self:AddDoubleLine(string.format('Items: %s |cff00ff00+1|r', (keyLevel > iKS.currentMax and 2+(keyLevel-iKS.currentMax)*.4 or 2)), 'ilvl: ' .. ilvl)
 	if keyLevel > iKeystonesDB[player].maxCompleted then
 		local weeklyDif = iKS:getAP(keyLevel, nil, nil, true) - iKS:getAP(iKeystonesDB[player].maxCompleted, nil, nil, true)
 		self:AddDoubleLine(string.format('AP: |cff00ff00%.2f|rB', iKS:getAP(keyLevel, map,nil,true)), string.format('Weekly: |cff00ff00+%.2f|rB', weeklyDif))
@@ -866,7 +825,7 @@ local function gameTooltipScanning(self)
 	if not (itemLink and itemLink:find('Hkeystone')) then
 		return
 	end
-	local map, keyLevel, l4,l7,l10 = string.match(itemLink, 'keystone:(%d+):(%d+):(%d+):(%d+):(%d+)')
+	local itemId, map, keyLevel,l4,l7,l10 = string.match(itemLink, 'keystone:(%d+):(%d+):(%d+):(%d+):(%d+):(%d+):(%d+)')
 	iKS:addToTooltip(self, map, keyLevel)
 end
 local function itemRefScanning(self)
@@ -892,6 +851,8 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 			iKeystonesDB = {}
 			iKS:scanInventory()
 			iKS:scanCharacterMaps()
+		elseif msg == 'print' then
+			iKS:printKeystones()
 		elseif msg == 'start' or msg == 's' then
 			if C_ChallengeMode.GetSlottedKeystoneInfo() then
 				C_ChallengeMode.StartChallengeMode()
@@ -907,7 +868,7 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 			end)
 		elseif msg == 'next' or msg == 'n' then
 			for i = 1, #iKS.affixCycles do
-				if iKS.affixCycles[i][1] == iKeystonesConfig.aff.aff4.a and iKS.affixCycles[i][2] == iKeystonesConfig.aff.aff7.a and iKS.affixCycles[i][3] == iKeystonesConfig.aff.aff10.a then
+				if iKS.affixCycles[i][1] == iKS.currentAffixes[1] and iKS.affixCycles[i][2] == iKS.currentAffixes[2] and iKS.affixCycles[i][3] == iKS.currentAffixes[3] then
 					local nextCycle = i+1 <= #iKS.affixCycles and i+1 or 1
 					local aff1 = C_ChallengeMode.GetAffixInfo(iKS.affixCycles[nextCycle][1])
 					local aff2 = C_ChallengeMode.GetAffixInfo(iKS.affixCycles[nextCycle][2])
@@ -946,6 +907,10 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 			iKS:help()
 		end
 	else
-		iKS:printKeystones()
+		if iKS.anchor and iKS.anchor:IsShown() then
+			iKS.anchor:Hide()
+		else
+			iKS:createMainWindow()
+		end
 	end
 end
