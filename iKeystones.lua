@@ -231,8 +231,9 @@ function iKS:scanInventory(requestingSlots, requestingItemLink)
 		['map'] = _map,
 		['level'] = _level,
 	}
-	if iKS.keyLevel and iKS.keyLevel < _level or not iKS.keyLevel then
-		local itemLink = iKS.getKeystoneLink(_level, _map)
+	print("InventoryScan - Map:", _map, " Level:", _level)
+	if (iKS.keyLevel and iKS.keyLevel < _level) or not iKS.keyLevel then
+		local itemLink = iKS:getKeystoneLink(_level, _map)
 		print('iKS: New keystone - ' .. itemLink)
 	end
 	iKS.keyLevel = _level
