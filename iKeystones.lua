@@ -344,12 +344,11 @@ function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel, reques
 				else
 					SendChatMessage(UNKNOWN, channel)
 				end
-				--itemLink = string.format('|cffa335ee|Hkeystone:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', data.key.map, data.key.level, data.key.affix4, data.key.affix7, data.key.affix10,iKS:getZoneInfo(data.key.map), data.key.level)
 			else
-				SendChatMessage(UNKNOWN, channel)
+				SendChatMessage("No keystones.", channel)
 			end
 		else
-			SendChatMessage(UNKNOWN, channel)
+			SendChatMessage("No keystones.", channel)
 		end
 	end
 end
@@ -405,7 +404,7 @@ function addon:ADDON_LOADED(addonName)
 		end
 	elseif addonName == 'Blizzard_ChallengesUI' then
 		addon:UnregisterEvent('ADDON_LOADED')
-		local q = C_ChallengeMode.IsWeeklyRewardAvailable()
+		local q = C_MythicPlus.IsWeeklyRewardAvailable()
 		iKeystonesDB[player].canLoot = q
 		if q then
 			addon:RegisterEvent('QUEST_LOG_UPDATE')
