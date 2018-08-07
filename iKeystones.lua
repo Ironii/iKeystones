@@ -231,12 +231,12 @@ function iKS:scanInventory(requestingSlots, requestingItemLink)
 		['map'] = _map,
 		['level'] = _level,
 	}
-	if iKS.keyLevel and iKS.keyLevel < _level then
+	if iKS.keyLevel and iKS.keyLevel < _level or not iKS.keyLevel then
 		local itemLink = iKS.getKeystoneLink(_level, _map)
 		print('iKS: New keystone - ' .. itemLink)
 	end
-	iKS.keyLevel = C_MythicPlus.GetOwnedKeystoneLevel()
-	iKS.mapID = C_MythicPlus.GetOwnedKeystoneChallengeMapID()
+	iKS.keyLevel = _level
+	iKS.mapID = _map
 end
 function iKS:getItemColor(level)
 	if level < 4 then	-- Epic
@@ -260,7 +260,7 @@ function iKS:getZoneInfo(mapID, zone)
 	end
 end
 function iKS:getKeystoneLink(keyLevel, map)
-	return string.format('%s|Hkeystone:%d:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', iKS:getItemColor(keyLevel), map, keyLevel, (keyLevel >= 4 and iKS.currentAffixes[2] or 0), (keyLevel >= 7 and iKS.currentAffixes[3] or 0), iKS.currentAffixes[1],(keyLevel >= 10 and iKS.currentAffixes[4] or 0), iKS:getZoneInfo(map), keyLevel)
+	return string.format('%s|Hkeystone:%d:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', iKS:getItemColor(keyLevel), map, keyLevel, (keyLevel >= 4 and iKS.currentAffixes[2] or 0), (keyLevel >= 7 and iKS.currentAffixes[3] or 0), iKS.currentAffixes[1],((keyLevel >= 10 and iKS.currentAffixes[4]) and iKS.currentAffixes[4] or 0), iKS:getZoneInfo(map), keyLevel)
 end
 function iKS:printKeystones()
 	local allCharacters = {}
