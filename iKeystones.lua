@@ -77,7 +77,19 @@ iKS.keystonesToMapIDs = {
 	[233] = 1677, -- Cathedral of Eternal Night
 	[234] = 1651, -- Return to Karazhan: Upper
 	[239] = 1753, -- The Seat of the Triumvirate
+
+	[244] = 1763, -- Atal'Dazar
+	[245] = 1754, -- Freehold
+	[246] = 1841, -- Tol Dagor
+	[247] = 1594, -- The Motherlode
+	[248] = 1862, -- Waycrest Manor
+	[249] = 1762, -- King's Rest
+	[250] = 1877, -- Temple of Sethraliss
+	[251] = 1841, -- The Underrot
+	[252] = 1864, -- Shrine of the Storm
+	[353] = 1822, -- Siege of Boralus
 }
+
 iKS.currentAffixes = {0,0,0,0}
 local sortedAffixes = {
 	[10] = 1, --Fortified
@@ -441,9 +453,9 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	}
 	--Get max dynamically
 	local lastMax = 0
-	for i = 1, 30 do
+	for i = 2, 30 do
 		local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(i)
-		if lastMax <= ilvl then
+		if lastMax < ilvl then
 			lastMax = ilvl
 		else
 			iKS.currentMax = i-1
