@@ -187,7 +187,7 @@ function iKS:weeklyReset()
 end
 function iKS:createPlayer()
 	if player and not iKeystonesDB[player] then
-		if UnitLevel('player') >= 110 and not iKeystonesConfig.ignoreList[player] then
+		if UnitLevel('player') >= 120 and not iKeystonesConfig.ignoreList[player] then
 			iKeystonesDB[player] = {
 				name = UnitName('player'),
 				server = GetRealmName(),
@@ -230,7 +230,7 @@ function iKS:scanInventory(requestingSlots, requestingItemLink)
 		for bagID = 0, 4 do
 			for invID = 1, GetContainerNumSlots(bagID) do
 				local itemID = GetContainerItemID(bagID, invID)
-				if itemID and itemID == 138019 then
+				if itemID and itemID == 158923 then
 					if requestingSlots then
 						return bagID, invID
 					end
