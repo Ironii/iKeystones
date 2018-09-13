@@ -127,7 +127,17 @@ iKS.affixCycles = {
 	{10,11,14}, -- Bursting, Quaking, Fortified
 }
 --C_MythicPlus.GetLastWeeklyBestInformation();
-
+--[[
+	2 = 1000
+	3 = 1050
+	4 = 1100
+	5 = 1150
+	6 = 1200,
+	7 = 1250,
+	8 = 1300,
+	9 = 1350,
+	10 = 1400,
+]]
 function iKS:getAP(level, map, current, onlyNumber)
 	if level and map then
 		local dif = iKS.apFromDungeons.dif[map] or 2 -- default to normal
@@ -148,22 +158,10 @@ function iKS:getAP(level, map, current, onlyNumber)
 			return string.format('%.2fB', ap/1e9)
 		end
 	elseif level then
-		local ap
-		if level >= 15 then
-			ap = (5000+(level-15)*400)
-		elseif level >= 10 then
-			ap = (3125+(level-10)*400)
-		elseif level >= 7 then
-			ap = 2150
-		elseif level >= 4 then
-			ap = 1925
-		elseif level > 0 then
-			ap = 1250
-		end
-		if onlyNumber then
-			return ap and ap/1e9 or 0
+		if level > 0 then
+			return 1000 + (level-2)*50
 		else
-			return ap and (string.format('%.2fB', ap/1e9)) or '-'
+			return 0
 		end
 	else
 		if onlyNumber then
@@ -201,6 +199,9 @@ function iKS:createPlayer()
 		else
 			return false
 		end
+	elseif player and UnitLevel('player') < 120 and iKeystonesDB[player] then
+		iKeystonesDB[player] = nil
+		return false
 	elseif player and iKeystonesDB[player] then
 		iKeystonesDB[player].name = UnitName('player') -- fix for name changing
 		iKeystonesDB[player].faction = UnitFactionGroup('player') -- faction change (tbh i think guid would change) and update old DB
@@ -380,9 +381,10 @@ function addon:PLAYER_LOGIN()
 	C_MythicPlus.RequestMapInfo()
     C_MythicPlus.RequestRewards()
 	if iKeystonesDB[player] and iKeystonesDB[player].canLoot then
-		addon:RegisterEvent('QUEST_LOG_UPDATE')
-	elseif not IsQuestFlaggedCompleted(44554) then
+		--addon:RegisterEvent('QUEST_LOG_UPDATE')
+	--elseif not IsQuestFlaggedCompleted(44554) then
 		addon:RegisterEvent('ADDON_LOADED')
+		LoadAddOn("Blizzard_ChallengesUI")
 	end
 	GarrisonLandingPageMinimapButton:HookScript('OnEnter', function()
 		if IsShiftKeyDown() then
@@ -418,9 +420,9 @@ function addon:ADDON_LOADED(addonName)
 		addon:UnregisterEvent('ADDON_LOADED')
 		local q = C_MythicPlus.IsWeeklyRewardAvailable()
 		iKeystonesDB[player].canLoot = q
-		if q then
-			addon:RegisterEvent('QUEST_LOG_UPDATE')
-		end
+		--if q then
+		--	addon:RegisterEvent('QUEST_LOG_UPDATE')
+		--end
 	end
 end
 function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
@@ -549,7 +551,7 @@ function addon:CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN()
 end
 local function chatFiltering(self, event, msg, ...)
 	if event == 'CHAT_MSG_LOOT' then
-		local linkStart = msg:find('Hitem:138019')
+		local linkStart = msg:find('Hitem:158923')
 		if linkStart then
 			local preLink = msg:sub(1, linkStart-12)
 			local linkStuff = msg:sub(math.max(linkStart-11, 0))
@@ -823,7 +825,7 @@ function iKS:addToTooltip(self, map, keyLevel)
 	keyLevel = tonumber(keyLevel)
 	local wIlvl, ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(keyLevel)
 	self:AddLine(' ')
-	self:AddDoubleLine(string.format('Items: %s |cff00ff00+1|r', (keyLevel > iKS.currentMax and 2+(keyLevel-iKS.currentMax)*.4 or 2)), 'ilvl: ' .. ilvl)
+	self:AddDoubleLine(string.format('Items: %s |cff00ff00+1|r', (keyLevel > iKS.currentMax and (2+(keyLevel-iKS.currentMax)*.4) or 2)), 'ilvl: ' .. ilvl)
 	if keyLevel > iKeystonesDB[player].maxCompleted then
 		local weeklyDif = iKS:getAP(keyLevel, nil, nil, true) - iKS:getAP(iKeystonesDB[player].maxCompleted, nil, nil, true)
 		self:AddDoubleLine(string.format('AP: |cff00ff00%.2f|rB', iKS:getAP(keyLevel, map,nil,true)), string.format('Weekly: |cff00ff00+%.2f|rB', weeklyDif))
