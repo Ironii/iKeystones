@@ -80,7 +80,7 @@ iKS.keystonesToMapIDs = {
 
 	[244] = 1763, -- Atal'Dazar
 	[245] = 1754, -- Freehold
-	[246] = 1841, -- Tol Dagor
+	[246] = 1771, -- Tol Dagor
 	[247] = 1594, -- The Motherlode
 	[248] = 1862, -- Waycrest Manor
 	[249] = 1762, -- King's Rest
