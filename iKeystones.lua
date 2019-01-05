@@ -10,8 +10,17 @@ addon:RegisterEvent('MYTHIC_PLUS_CURRENT_AFFIX_UPDATE')
 addon:RegisterEvent('MYTHIC_PLUS_NEW_WEEKLY_RECORD')
 addon:RegisterEvent('ITEM_PUSH')
 addon:RegisterEvent('BAG_UPDATE')
+addon:RegisterEvent('CRITERIA_UPDATE')
+addon:RegisterEvent('QUEST_LOG_UPDATE')
+addon:RegisterEvent('ENCOUNTER_LOOT_RECEIVED')
 
 --Chat events
+-- /dump GetQuestObjectiveInfo(53435, 1, false)
+--
+--
+--
+--
+--
 
 addon:RegisterEvent('CHAT_MSG_PARTY')
 addon:RegisterEvent('CHAT_MSG_PARTY_LEADER')
@@ -20,6 +29,7 @@ addon:RegisterEvent('CHAT_MSG_PARTY_LEADER')
 local iKS = {}
 iKS.currentMax = 0
 iKS.frames = {}
+local shouldBeCorrectInfoForWeekly = false
 local player = UnitGUID('player')
 
 iKS.apFromDungeons = {
@@ -138,6 +148,28 @@ iKS.affixCycles = {
 	9 = 1350,
 	10 = 1400,
 ]]
+local function spairs(t, order)
+    -- collect the keys
+    local keys = {}
+    for k in pairs(t) do keys[#keys+1] = k end
+
+    -- if order function given, sort by it by passing the table and keys a, b,
+	-- otherwise just sort the keys
+    if order then
+        table.sort(keys, function(a,b) return order(t, a, b) end)
+    else
+        table.sort(keys)
+    end
+
+    -- return the iterator function
+    local i = 0
+    return function()
+        i = i + 1
+        if keys[i] then
+            return keys[i], t[keys[i]]
+        end
+    end
+end
 function iKS:getAP(level, map, current, onlyNumber)
 	if level and map then
 		local dif = iKS.apFromDungeons.dif[map] or 2 -- default to normal
@@ -176,15 +208,22 @@ function iKS:weeklyReset()
 		if iKeystonesDB[guid].maxCompleted and iKeystonesDB[guid].maxCompleted > 0 then
 			iKeystonesDB[guid].canLoot = true
 		end
+		if iKeystonesDB[guid].isle and iKeystonesDB[guid].isle.done then
+			iKeystonesDB[guid].isle = {
+				progress = 0,
+				done = false,
+			}
+		end
 		iKeystonesDB[guid].key = {}
 		iKeystonesDB[guid].maxCompleted = 0
 	end
 
 	iKS:scanInventory()
-	addon:RegisterEvent('QUEST_LOG_UPDATE')
 end
 function iKS:createPlayer()
 	if player and not iKeystonesDB[player] then
+		local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(53435, 1, false))
+		local isleDone = IsQuestFlaggedCompleted(53435)
 		if UnitLevel('player') >= 120 and not iKeystonesConfig.ignoreList[player] then
 			iKeystonesDB[player] = {
 				name = UnitName('player'),
@@ -194,6 +233,10 @@ function iKS:createPlayer()
 				key = {},
 				canLoot = false,
 				faction = UnitFactionGroup('player'),
+				isle = {
+					progress = string.format("%0.f", isleProgress/isleMax*100),
+					done = isleDone,
+				},
 			}
 			return true
 		else
@@ -205,6 +248,14 @@ function iKS:createPlayer()
 	elseif player and iKeystonesDB[player] then
 		iKeystonesDB[player].name = UnitName('player') -- fix for name changing
 		iKeystonesDB[player].faction = UnitFactionGroup('player') -- faction change (tbh i think guid would change) and update old DB
+		if not iKeystonesDB[player].isle then
+			local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(53435, 1, false))
+			local isleDone = IsQuestFlaggedCompleted(53435)
+			iKeystonesDB[player].isle = {
+				progress = string.format("%0.f", isleProgress/isleMax*100),
+				done = isleDone,
+			}
+		end
 		return true
 	else
 		return false
@@ -417,29 +468,30 @@ function addon:ADDON_LOADED(addonName)
 			iKeystonesConfig.ak = nil
 		end
 	elseif addonName == 'Blizzard_ChallengesUI' then
+		addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 		addon:UnregisterEvent('ADDON_LOADED')
-		local q = C_MythicPlus.IsWeeklyRewardAvailable()
-		iKeystonesDB[player].canLoot = q
-		--if q then
-		--	addon:RegisterEvent('QUEST_LOG_UPDATE')
-		--end
 	end
 end
 function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	local temp = C_MythicPlus.GetCurrentAffixes()
+	if not temp then return end
 	if temp[1] then
-		iKS.currentAffixes[sortedAffixes[temp[1]]] = temp[1]
+		iKS.currentAffixes[sortedAffixes[temp[1].id]] = temp[1].id
 	end
 	if temp[2] then
-		iKS.currentAffixes[sortedAffixes[temp[2]]] = temp[2]
+		iKS.currentAffixes[sortedAffixes[temp[2].id]] = temp[2].id
 	end
 	if temp[3] then
-		iKS.currentAffixes[sortedAffixes[temp[3]]] = temp[3]
+		iKS.currentAffixes[sortedAffixes[temp[3].id]] = temp[3].id
 	end
 	if temp[4] then
-		iKS.currentAffixes[sortedAffixes[temp[4]]] = temp[4]
+		iKS.currentAffixes[sortedAffixes[temp[4].id]] = temp[4].id
+	end
+	if iKeystonesDB[player] then
+		iKeystonesDB[player].canLoot = C_MythicPlus.IsWeeklyRewardAvailable()
 	end
 	local affstring = string.format("%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
+	--print("affixes:",affstring) -- debug
 	if iKeystonesConfig.affstring ~= affstring then
 		iKeystonesConfig.affstring = affstring
 		iKS:weeklyReset()
@@ -481,10 +533,36 @@ function addon:CHALLENGE_MODE_MAPS_UPDATE()
 	iKS:scanCharacterMaps()
 end
 function addon:QUEST_LOG_UPDATE()
+	if not iKeystonesDB[player] then return end
 	if IsQuestFlaggedCompleted(44554) then
 		iKeystonesDB[player].canLoot = false
-		addon:UnregisterEvent('QUEST_LOG_UPDATE')
 	end
+	if IsQuestFlaggedCompleted(53435) then
+		iKeystonesDB[player].isle = {
+			progress = 0,
+			done = true,
+		}
+	else
+		if not iKeystonesDB[player].isle then
+			iKeystonesDB[player].isle = {}
+		end
+		local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(53435, 1, false))
+		if not isleProgress or not isleMax then return end
+		iKeystonesDB[player].isle = {
+			progress = string.format("%0.f", isleProgress/isleMax*100),
+			done = false,
+		}
+	end
+end
+function addon:CRITERIA_UPDATE()
+	addon:QUEST_LOG_UPDATE()
+end
+function addon:ENCOUNTER_LOOT_RECEIVED(_, itemid)
+	if itemid ~= 158923 then return end
+	C_Timer.After(5, function()
+		iKeystonesDB[player].canLoot = C_MythicPlus.IsWeeklyRewardAvailable()
+	end)
+
 end
 local function ChatHandling(msg, channel)
 	if not msg then return end -- not sure if this can even happen, maybe?
@@ -610,10 +688,10 @@ iKS.bd = {
 	edgeFile = "Interface\\Buttons\\WHITE8x8",
 	edgeSize = 1,
 	insets = {
-		left = -1,
-		right = -1,
-		top = -1,
-		bottom = -1,
+		left = 0,
+		right = 0,
+		top = 0,
+		bottom = 0,
 	},
 }
 function iKS:createNewLine()
@@ -625,7 +703,7 @@ function iKS:createNewLine()
 	f.name:SetBackdrop(iKS.bd)
 	f.name:SetBackdropColor(.1,.1,.1,.9)
 	f.name:SetBackdropBorderColor(0,0,0,1)
-	f.name:SetPoint('TOPLEFT', (#iKS.frames == 1 and iKS.anchor or iKS.frames[#iKS.frames-1].name), 'BOTTOMLEFT', 0,0)
+	f.name:SetPoint('TOPLEFT', (#iKS.frames == 1 and iKS.anchor or iKS.frames[#iKS.frames-1].name), 'BOTTOMLEFT', 0,1)
 
 	f.name.text = f.name:CreateFontString()
 	f.name.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
@@ -638,7 +716,7 @@ function iKS:createNewLine()
 	f.key:SetBackdrop(iKS.bd)
 	f.key:SetBackdropColor(.1,.1,.1,.9)
 	f.key:SetBackdropBorderColor(0,0,0,1)
-	f.key:SetPoint('TOPLEFT', f.name, 'TOPRIGHT', 0,0)
+	f.key:SetPoint('TOPLEFT', f.name, 'TOPRIGHT', -1,0)
 
 	f.key.text = f.key:CreateFontString()
 	f.key.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
@@ -651,7 +729,7 @@ function iKS:createNewLine()
 	f.max:SetBackdrop(iKS.bd)
 	f.max:SetBackdropColor(.1,.1,.1,.9)
 	f.max:SetBackdropBorderColor(0,0,0,1)
-	f.max:SetPoint('TOPLEFT', f.key, 'TOPRIGHT', 0,0)
+	f.max:SetPoint('TOPLEFT', f.key, 'TOPRIGHT', -1,0)
 
 	f.max.text = f.max:CreateFontString()
 	f.max.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
@@ -664,7 +742,7 @@ function iKS:createNewLine()
 	f.ilvl:SetBackdrop(iKS.bd)
 	f.ilvl:SetBackdropColor(.1,.1,.1,.9)
 	f.ilvl:SetBackdropBorderColor(0,0,0,1)
-	f.ilvl:SetPoint('TOPLEFT', f.max, 'TOPRIGHT', 0,0)
+	f.ilvl:SetPoint('TOPLEFT', f.max, 'TOPRIGHT', -1,0)
 
 	f.ilvl.text = f.key:CreateFontString()
 	f.ilvl.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
@@ -677,13 +755,26 @@ function iKS:createNewLine()
 	f.ap:SetBackdrop(iKS.bd)
 	f.ap:SetBackdropColor(.1,.1,.1,.9)
 	f.ap:SetBackdropBorderColor(0,0,0,1)
-	f.ap:SetPoint('TOPLEFT', f.ilvl, 'TOPRIGHT', 0,0)
+	f.ap:SetPoint('TOPLEFT', f.ilvl, 'TOPRIGHT', -1,0)
 
 	f.ap.text = f.ap:CreateFontString()
 	f.ap.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
 	f.ap.text:SetPoint('CENTER', f.ap, 'CENTER', 0,0)
 	f.ap.text:SetText(#iKS.frames == 1 and 'AP' or '')
 	f.ap.text:Show()
+
+	f.isle = CreateFrame('frame', nil , iKS.anchor)
+	f.isle:SetSize(50,20)
+	f.isle:SetBackdrop(iKS.bd)
+	f.isle:SetBackdropColor(.1,.1,.1,.9)
+	f.isle:SetBackdropBorderColor(0,0,0,1)
+	f.isle:SetPoint('TOPLEFT', f.ap, 'TOPRIGHT', -1,0)
+
+	f.isle.text = f.ap:CreateFontString()
+	f.isle.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+	f.isle.text:SetPoint('CENTER', f.isle, 'CENTER', 0,0)
+	f.isle.text:SetText(#iKS.frames == 1 and 'Isle' or '')
+	f.isle.text:Show()
 end
 local function reColor(f, faction)
 	local r,g,b = .1,.1,.1
@@ -697,13 +788,23 @@ local function reColor(f, faction)
 	f.max:SetBackdropColor(r,g,b,.9)
 	f.ilvl:SetBackdropColor(r,g,b,.9)
 	f.ap:SetBackdropColor(r,g,b,.9)
+	f.isle:SetBackdropColor(r,g,b,.9)
 end
 function iKS:createMainWindow()
 	if not iKS.anchor then
 		iKS.anchor = CreateFrame('frame', nil, UIParent)
-		iKS.anchor:SetSize(5,5)
+		iKS.anchor:SetSize(1,1)
 	end
-	iKS.anchor:SetPoint('TOP', UIParent, 'TOP', 0,-50)
+	if iKeystonesConfig.windowPos == 1 then -- Screen one
+		local width = math.floor(UIParent:GetWidth()/4)
+		iKS.anchor:SetPoint('TOP', UIParent, 'TOP', -width+1,-50)
+	elseif iKeystonesConfig.windowPos == 2 then -- Screen two
+		local width = math.floor(UIParent:GetWidth()/4)
+		iKS.anchor:SetPoint('TOP', UIParent, 'TOP', width,-50)
+	else
+		iKS.anchor:SetPoint('TOP', UIParent, 'TOP', 0,-50)
+	end
+
 	iKS.anchor:Show()
 	if #iKS.frames == 0 then
 		iKS:createNewLine()
@@ -754,9 +855,10 @@ function iKS:createMainWindow()
 		name = 96,
 		key = 146,
 		ap = 46,
+		isle = 46,
 	}
 	local treasure = '|TInterface\\Icons\\inv_misc_treasurechest02b:16|t'
-	for k,v in pairs(iKeystonesDB) do
+	for k,v in spairs(iKeystonesDB, function(t,a,b) return t[b].name > t[a].name end) do
 		i = i + 1
 		if not iKS.frames[i] then
 			iKS:createNewLine()
@@ -772,6 +874,7 @@ function iKS:createMainWindow()
 		local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(v.maxCompleted)
 		f.ilvl.text:SetText(v.maxCompleted > 0 and ilvl or '-')
 		f.ap.text:SetText(iKS:getAP(v.maxCompleted))
+		f.isle.text:SetText((v.isle and v.isle.done and '|cff00ff00100%') or (v.isle and (v.isle.progress .."%")) or '0%')
 		if f.name.text:GetWidth() > maxSizes.name then
 			maxSizes.name = f.name.text:GetWidth()
 		end
@@ -781,18 +884,26 @@ function iKS:createMainWindow()
 		if f.ap.text:GetWidth() > maxSizes.ap then
 			maxSizes.ap = f.ap.text:GetWidth()
 		end
+		if f.isle.text:GetWidth() > maxSizes.isle then
+			maxSizes.isle = f.isle.text:GetWidth()
+		end
 		reColor(f, v.faction)
 		f.name:Show()
 		f.key:Show()
 		f.max:Show()
 		f.ilvl:Show()
 		f.ap:Show()
+		f.isle:Show()
+	end
+	for k,v in pairs(maxSizes) do
+		maxSizes[k] = math.ceil(v)
 	end
 	for id = 1, i do
 		local f = iKS.frames[id]
 		f.name:SetWidth(maxSizes.name+4)
 		f.key:SetWidth(maxSizes.key+4)
 		f.ap:SetWidth(maxSizes.ap+4)
+		f.isle:SetWidth(maxSizes.isle+4)
 	end
 	for j = i+1, #iKS.frames do
 		local f = iKS.frames[j]
@@ -801,23 +912,24 @@ function iKS:createMainWindow()
 		f.max:Hide()
 		f.ilvl:Hide()
 		f.ap:Hide()
+		f.isle:Hide()
 	end
-	local w = maxSizes.name+maxSizes.key+maxSizes.ap+100 --+max(50)+ilvl(50)
+	local w = maxSizes.name+maxSizes.key+maxSizes.ap+maxSizes.isle+100 --+max(50)+ilvl(50)
 	iKS.anchor:SetWidth(w)
 
 	iKS.affixes.aff2:ClearAllPoints()
-	iKS.affixes.aff2:SetPoint('TOPLEFT', iKS.frames[i].name, 'BOTTOMLEFT', 0,0)
-	iKS.affixes.aff2:SetWidth(w/3)
+	iKS.affixes.aff2:SetPoint('TOPLEFT', iKS.frames[i].name, 'BOTTOMLEFT', 0,1)
+	iKS.affixes.aff2:SetWidth(math.floor(w/3))
 	iKS.affixes.aff2.text:SetText(C_ChallengeMode.GetAffixInfo(iKS.currentAffixes[1]))
 
-	iKS.affixes.aff7:SetWidth(w/3)
+	iKS.affixes.aff7:SetWidth(math.floor(w/3))
 	iKS.affixes.aff7:ClearAllPoints()
-	iKS.affixes.aff7:SetPoint('TOPRIGHT', iKS.frames[i].ap, 'BOTTOMRIGHT', 0,0)
+	iKS.affixes.aff7:SetPoint('TOPRIGHT', iKS.frames[i].isle, 'BOTTOMRIGHT', 0,1)
 	iKS.affixes.aff7.text:SetText(C_ChallengeMode.GetAffixInfo(iKS.currentAffixes[3]))
 
 	iKS.affixes.aff4:ClearAllPoints()
-	iKS.affixes.aff4:SetPoint('LEFT', iKS.affixes.aff2, 'RIGHT', 0,0)
-	iKS.affixes.aff4:SetPoint('RIGHT', iKS.affixes.aff7, 'LEFT', 0,0)
+	iKS.affixes.aff4:SetPoint('LEFT', iKS.affixes.aff2, 'RIGHT', -1,0)
+	iKS.affixes.aff4:SetPoint('RIGHT', iKS.affixes.aff7, 'LEFT', 1,0)
 	iKS.affixes.aff4.text:SetText(C_ChallengeMode.GetAffixInfo(iKS.currentAffixes[2]))
 end
 function iKS:addToTooltip(self, map, keyLevel)
@@ -916,6 +1028,12 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 				end
 			end
 			print('iKS: cannot find ' ..char..'-'..server..'.')
+		elseif msg == 'screen1' then
+			iKeystonesConfig.windowPos = 1
+		elseif msg == 'screen2' then
+			iKeystonesConfig.windowPos = 2
+		elseif msg == "screennormal" then
+			iKeystonesConfig.windowPos = 0
 		else
 			iKS:help()
 		end
