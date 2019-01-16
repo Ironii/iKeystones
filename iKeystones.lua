@@ -170,7 +170,7 @@ local function spairs(t, order)
         end
     end
 end
-function iKS:getAP(level, map, current, onlyNumber)
+function iKS:getAP(level, map, current, onlyNumber, forSummary)
 	if level and map then
 		local dif = iKS.apFromDungeons.dif[map] or 2 -- default to normal
 		if level >= 15 then
@@ -193,7 +193,7 @@ function iKS:getAP(level, map, current, onlyNumber)
 		if level > 0 then
 			return 1000 + (level-2)*50
 		else
-			return 0
+			return forSummary and '-' or 0
 		end
 	else
 		if onlyNumber then
@@ -261,17 +261,37 @@ function iKS:createPlayer()
 		return false
 	end
 end
+--C_MythicPlus.RequestCurrentAffixes();
+--C_MythicPlus.RequestMapInfo();
+--C_MythicPlus.RequestRewards();
+--for i = 1, #self.maps do
+--	C_ChallengeMode.RequestLeaders(self.maps[i]);
+--end
+local validDungeons
+local function IsValidDungeon(dungeonID)
+	if not validDungeons then
+		C_MythicPlus.RequestMapInfo()
+		validDungeons = C_ChallengeMode.GetMapTable()
+	end
+	if validDungeons[dungeonID] then
+		return true
+	else
+		return false
+	end
+end
 function iKS:scanCharacterMaps()
 	if not iKS:createPlayer() then return end
-	--[[ local maps = C_ChallengeMode.GetMapTable()
+	local maps = C_ChallengeMode.GetMapTable()
 	local maxCompleted = 0
 	for _, mapID in pairs(maps) do
 		local _, level, _, affixes = C_MythicPlus.GetWeeklyBestForMap(mapID)
 		if level and level > maxCompleted then
 			maxCompleted = level
 		end
-	end --]]
-	iKeystonesDB[player].maxCompleted = C_MythicPlus.GetWeeklyChestRewardLevel()
+	end
+	if iKeystonesDB[player].maxCompleted and iKeystonesDB[player].maxCompleted < maxCompleted then
+		iKeystonesDB[player].maxCompleted = maxCompleted
+	end
 end
 function iKS:scanInventory(requestingSlots, requestingItemLink)
 	if not iKS:createPlayer() then return end
@@ -431,12 +451,6 @@ function addon:PLAYER_LOGIN()
 	C_MythicPlus.RequestCurrentAffixes()
 	C_MythicPlus.RequestMapInfo()
     C_MythicPlus.RequestRewards()
-	if iKeystonesDB[player] and iKeystonesDB[player].canLoot then
-		--addon:RegisterEvent('QUEST_LOG_UPDATE')
-	--elseif not IsQuestFlaggedCompleted(44554) then
-		addon:RegisterEvent('ADDON_LOADED')
-		LoadAddOn("Blizzard_ChallengesUI")
-	end
 	GarrisonLandingPageMinimapButton:HookScript('OnEnter', function()
 		if IsShiftKeyDown() then
 			iKS:createMainWindow()
@@ -453,7 +467,6 @@ function addon:PLAYER_LOGIN()
 end
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
-		addon:UnregisterEvent('ADDON_LOADED')
 		iKeystonesDB = iKeystonesDB or {}
 		iKeystonesConfig = iKeystonesConfig or {}
 		if not iKeystonesConfig.ignoreList then
@@ -467,14 +480,22 @@ function addon:ADDON_LOADED(addonName)
 		if iKeystonesConfig.ak then -- remove old ak stuff from wtf file
 			iKeystonesConfig.ak = nil
 		end
+		LoadAddOn("Blizzard_ChallengesUI")
 	elseif addonName == 'Blizzard_ChallengesUI' then
 		addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
-		addon:UnregisterEvent('ADDON_LOADED')
 	end
 end
+local delayLoadingTimer
 function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	local temp = C_MythicPlus.GetCurrentAffixes()
-	if not temp then return end
+	if not temp then
+		if not delayLoadingTimer then
+			delayLoadingTimer = C_Timer.NewTimer(2, function()
+				addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
+			end)
+		end
+		return
+	end
 	if temp[1] then
 		iKS.currentAffixes[sortedAffixes[temp[1].id]] = temp[1].id
 	end
@@ -519,7 +540,10 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 
 end
 function addon:MYTHIC_PLUS_NEW_WEEKLY_RECORD(mapChallengeModeID, completionMilliseconds, level)
-	iKS:scanCharacterMaps()
+	if not iKS:createPlayer() or not level or not IsValidDungeon(mapChallengeModeID) then return end
+	if level > iKeystonesDB[player].maxCompleted then
+		iKeystonesDB[player].maxCompleted = level
+	end
 end
 function addon:BAG_UPDATE()
 	iKS:scanInventory()
@@ -864,6 +888,12 @@ function iKS:createMainWindow()
 			iKS:createNewLine()
 		end
 		local f = iKS.frames[i]
+		f.name:Show()
+		f.key:Show()
+		f.max:Show()
+		f.ilvl:Show()
+		f.ap:Show()
+		f.isle:Show()
 		if v.server == GetRealmName() then
 			f.name.text:SetText(string.format('%s|c%s%s\124r', (v.canLoot and treasure or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name))
 		else
@@ -873,7 +903,7 @@ function iKS:createMainWindow()
 		f.max.text:SetText((v.maxCompleted >= iKS.currentMax and '|cff00ff00' .. v.maxCompleted) or (v.maxCompleted > 0 and v.maxCompleted) or '-')
 		local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(v.maxCompleted)
 		f.ilvl.text:SetText(v.maxCompleted > 0 and ilvl or '-')
-		f.ap.text:SetText(iKS:getAP(v.maxCompleted))
+		f.ap.text:SetText(iKS:getAP(v.maxCompleted,nil,nil,nil,true))
 		f.isle.text:SetText((v.isle and v.isle.done and '|cff00ff00100%') or (v.isle and (v.isle.progress .."%")) or '0%')
 		if f.name.text:GetWidth() > maxSizes.name then
 			maxSizes.name = f.name.text:GetWidth()
@@ -888,12 +918,6 @@ function iKS:createMainWindow()
 			maxSizes.isle = f.isle.text:GetWidth()
 		end
 		reColor(f, v.faction)
-		f.name:Show()
-		f.key:Show()
-		f.max:Show()
-		f.ilvl:Show()
-		f.ap:Show()
-		f.isle:Show()
 	end
 	for k,v in pairs(maxSizes) do
 		maxSizes[k] = math.ceil(v)
@@ -1015,7 +1039,7 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 		elseif msg == 'help' or msg == 'h' then
 			iKS:help()
 		elseif msg:match('delete') or msg:match('d') then
-			local _,char,server = msg:match("^(.*) (.*) (.*)$")
+			local _,char,server = msg:match("^(.-) (.-) (.*)$")
 			if not (char and server) then
 				print('iKS: ' .. msg .. ' is not a valid format, please use /iks delete characterName serverName, eg /iks delete ironi stormreaver')
 				return
