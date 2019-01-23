@@ -31,6 +31,7 @@ iKS.currentMax = 0
 iKS.frames = {}
 local shouldBeCorrectInfoForWeekly = false
 local player = UnitGUID('player')
+local unitName = UnitName('player')
 
 iKS.apFromDungeons = {
 	[1] = { -- Lesser
@@ -120,6 +121,7 @@ local sortedAffixes = {
 
 	--[15] = ?, --Relentless
 	[16] = 4, --Infested
+	[117] = 4, --Reaping
 }
 
 iKS.affixCycles = {
@@ -284,9 +286,16 @@ function iKS:scanCharacterMaps()
 	local maps = C_ChallengeMode.GetMapTable()
 	local maxCompleted = 0
 	for _, mapID in pairs(maps) do
-		local _, level, _, affixes = C_MythicPlus.GetWeeklyBestForMap(mapID)
-		if level and level > maxCompleted then
-			maxCompleted = level
+		local _, level, _, affixes, members = C_MythicPlus.GetWeeklyBestForMap(mapID)
+		if members then
+			for _,member in pairs(members) do -- Avoid leaking from another char (wtf??, how is this even possible)
+				if member.name == unitName then
+					if level and level > maxCompleted then
+						maxCompleted = level
+					end
+					break;
+				end
+			end
 		end
 	end
 	if iKeystonesDB[player].maxCompleted and iKeystonesDB[player].maxCompleted < maxCompleted then
