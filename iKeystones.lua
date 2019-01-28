@@ -271,15 +271,17 @@ end
 --end
 local validDungeons
 local function IsValidDungeon(dungeonID)
+	dungeonID = tonumber(dungeonID)
+	if not dungeonID then return end
 	if not validDungeons then
+		validDungeons = {}
 		C_MythicPlus.RequestMapInfo()
-		validDungeons = C_ChallengeMode.GetMapTable()
+		local t = C_ChallengeMode.GetMapTable()
+		for _,v in pairs(t) do
+			validDungeons[v] = true
+		end
 	end
-	if validDungeons[dungeonID] then
-		return true
-	else
-		return false
-	end
+	return validDungeons[dungeonID]
 end
 function iKS:scanCharacterMaps()
 	if not iKS:createPlayer() then return end
@@ -459,7 +461,7 @@ function addon:PLAYER_LOGIN()
 	player = UnitGUID('player')
 	C_MythicPlus.RequestCurrentAffixes()
 	C_MythicPlus.RequestMapInfo()
-    C_MythicPlus.RequestRewards()
+  C_MythicPlus.RequestRewards()
 	GarrisonLandingPageMinimapButton:HookScript('OnEnter', function()
 		if IsShiftKeyDown() then
 			iKS:createMainWindow()
@@ -1047,6 +1049,13 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 			print('iKS: This character is now whitelisted.')
 		elseif msg == 'help' or msg == 'h' then
 			iKS:help()
+		elseif msg:match('^completed (%d+)$') or msg:match('^c (%d+)$') then
+			local level = msg:match('^completed (%d+)$')
+			if not level then
+				level = msg:match('^c (%d+)$')
+			end
+			if not iKS:createPlayer() then return end
+			iKeystonesDB[player].maxCompleted = tonumber(level)
 		elseif msg:match('delete') or msg:match('d') then
 			local _,char,server = msg:match("^(.-) (.-) (.*)$")
 			if not (char and server) then
