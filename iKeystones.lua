@@ -1076,6 +1076,16 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 			iKeystonesConfig.windowPos = 2
 		elseif msg == "screennormal" then
 			iKeystonesConfig.windowPos = 0
+		elseif msg:match("^(%d-)$") then
+			local lvl = msg:match("^(%d-)$")
+			local health, damage = C_ChallengeMode.GetPowerLevelDamageHealthMod(lvl)
+			if not iKS.currentAffixes[1] then
+				print(string.format("iKS: Didn't find Fortified orTyrannical affix\nBase Multipliers: Health %.2f - Damage %.2f", 1+health/100, 1+damage/100))
+			elseif iKS.currentAffixes[1] == 9 then -- Tyrannical
+				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f", lvl, (1+health/100)*1.4, (1+damage/100)*1.15, 1+health/100, 1+damage/100))
+			else -- Fortified
+				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f", lvl, 1+health/100, 1+damage/100, (1+health/100)*1.2, (1+damage/100)*1.3))
+			end
 		else
 			iKS:help()
 		end
