@@ -32,6 +32,7 @@ iKS.frames = {}
 local shouldBeCorrectInfoForWeekly = false
 local player = UnitGUID('player')
 local unitName = UnitName('player')
+local playerFaction = UnitFactionGroup('player')
 
 iKS.apFromDungeons = {
 	[1] = { -- Lesser
@@ -100,7 +101,10 @@ iKS.keystonesToMapIDs = {
 	[252] = 1864, -- Shrine of the Storm
 	[353] = 1822, -- Siege of Boralus
 }
-
+iKS.IsleQuests = {
+	['Horde'] = 53435,
+	['Alliance'] = 53436,
+}
 iKS.currentAffixes = {0,0,0,0}
 local sortedAffixes = {
 	[10] = 1, --Fortified
@@ -193,7 +197,7 @@ function iKS:getAP(level, map, current, onlyNumber, forSummary)
 		end
 	elseif level then
 		if level > 0 then
-			return 1000 + (level-2)*50
+			return 1500 + (level-2)*50
 		else
 			return forSummary and '-' or 0
 		end
@@ -224,8 +228,8 @@ function iKS:weeklyReset()
 end
 function iKS:createPlayer()
 	if player and not iKeystonesDB[player] then
-		local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(53435, 1, false))
-		local isleDone = IsQuestFlaggedCompleted(53435)
+		local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(iKS.IsleQuests[playerFaction], 1, false))
+		local isleDone = IsQuestFlaggedCompleted(iKS.IsleQuests[playerFaction])
 		if UnitLevel('player') >= 120 and not iKeystonesConfig.ignoreList[player] then
 			iKeystonesDB[player] = {
 				name = UnitName('player'),
@@ -251,8 +255,8 @@ function iKS:createPlayer()
 		iKeystonesDB[player].name = UnitName('player') -- fix for name changing
 		iKeystonesDB[player].faction = UnitFactionGroup('player') -- faction change (tbh i think guid would change) and update old DB
 		if not iKeystonesDB[player].isle then
-			local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(53435, 1, false))
-			local isleDone = IsQuestFlaggedCompleted(53435)
+			local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(iKS.IsleQuests[playerFaction], 1, false))
+			local isleDone = IsQuestFlaggedCompleted(iKS.IsleQuests[playerFaction])
 			iKeystonesDB[player].isle = {
 				progress = string.format("%0.f", isleProgress/isleMax*100),
 				done = isleDone,
@@ -539,16 +543,14 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	}
 	--Get max dynamically
 	local lastMax = 0
+	local currentMaxLevel = 0
 	for i = 2, 30 do
 		local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(i)
 		if lastMax < ilvl then
 			lastMax = ilvl
-		else
-			iKS.currentMax = i-1
-			break
+			iKS.currentMax = i
 		end
 	end
-
 end
 function addon:MYTHIC_PLUS_NEW_WEEKLY_RECORD(mapChallengeModeID, completionMilliseconds, level)
 	if not iKS:createPlayer() or not level or not IsValidDungeon(mapChallengeModeID) then return end
@@ -572,7 +574,7 @@ function addon:QUEST_LOG_UPDATE()
 	if IsQuestFlaggedCompleted(44554) then
 		iKeystonesDB[player].canLoot = false
 	end
-	if IsQuestFlaggedCompleted(53435) then
+	if IsQuestFlaggedCompleted(iKS.IsleQuests[playerFaction]) then
 		iKeystonesDB[player].isle = {
 			progress = 0,
 			done = true,
@@ -581,7 +583,7 @@ function addon:QUEST_LOG_UPDATE()
 		if not iKeystonesDB[player].isle then
 			iKeystonesDB[player].isle = {}
 		end
-		local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(53435, 1, false))
+		local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(iKS.IsleQuests[playerFaction], 1, false))
 		if not isleProgress or not isleMax then return end
 		iKeystonesDB[player].isle = {
 			progress = string.format("%0.f", isleProgress/isleMax*100),
@@ -911,7 +913,7 @@ function iKS:createMainWindow()
 			f.name.text:SetText(string.format('%s|c%s%s\124r - %s',(v.canLoot and treasure or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name, v.server))
 		end
 		f.key.text:SetText(v.key.level and string.format('%s%s (%s)|r', iKS:getItemColor(v.key.level), iKS:getZoneInfo(v.key.map), v.key.level) or '-')
-		f.max.text:SetText((v.maxCompleted >= iKS.currentMax and '|cff00ff00' .. v.maxCompleted) or (v.maxCompleted > 0 and v.maxCompleted) or '-')
+		f.max.text:SetText((not v.maxCompleted or v.maxCompleted == 0 and "-") or (v.maxCompleted >= iKS.currentMax and '|cff00ff00' .. v.maxCompleted) or (v.maxCompleted > 0 and v.maxCompleted))
 		local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(v.maxCompleted)
 		f.ilvl.text:SetText(v.maxCompleted > 0 and ilvl or '-')
 		f.ap.text:SetText(iKS:getAP(v.maxCompleted,nil,nil,nil,true))
@@ -1079,7 +1081,9 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 		elseif msg:match("^(%d-)$") then
 			local lvl = msg:match("^(%d-)$")
 			local health, damage = C_ChallengeMode.GetPowerLevelDamageHealthMod(lvl)
-			if not iKS.currentAffixes[1] then
+			if not health or not damage then
+				print("iKS: No data for level: " .. lvl)
+			elseif not iKS.currentAffixes[1] then
 				print(string.format("iKS: Didn't find Fortified orTyrannical affix\nBase Multipliers: Health %.2f - Damage %.2f", 1+health/100, 1+damage/100))
 			elseif iKS.currentAffixes[1] == 9 then -- Tyrannical
 				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f", lvl, (1+health/100)*1.4, (1+damage/100)*1.15, 1+health/100, 1+damage/100))
