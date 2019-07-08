@@ -33,48 +33,25 @@ local shouldBeCorrectInfoForWeekly = false
 local player = UnitGUID('player')
 local unitName = UnitName('player')
 local playerFaction = UnitFactionGroup('player')
-
+--[[
 iKS.apFromDungeons = {
-	[1] = { -- Lesser
-		['p'] = 175, -- Lesser Pathfinder's Symbol
-		['a'] = 290, -- Lesser Adventurer's Symbol
-		['h'] = 325, -- Lesser Hero's Symbol
-		['c'] = 465, -- Lesser Champion's Symbol
-		['m'] = 725, -- Lesser Master's Symbol
-		['b'] = 50, -- Lesser Adept's Spoils
-	},
-	[2] = { -- Normal
-		['p'] = 300, -- Pathfinder's Symbol
-		['a'] = 475, -- Adventurer's Symbol
-		['h'] = 540, -- Hero's Symbol
-		['c'] = 775, -- Champion's Symbol
-		['m'] = 1200, -- Master's Symbol
-		['b'] = 100, -- Adept's Spoils
-	},
-	[3] = { -- Greater
-		['p'] = 375, -- Greater Pathfinder's Symbol
-		['a'] = 600, -- Greater Adventurer's Symbol
-		['h'] = 675, -- Greater Hero's Symbol
-		['c'] = 1000, -- Greater Champion's Symbol
-		['m'] = 1500, -- Greater Master's Symbol
-		['b'] = 125, -- Greater Adept's Spoils
-	},
-	dif = {
-		[197] = 2, -- Eye of Azhara
-		[198] = 2, -- Darkhearth Thicket
-		[199] = 2, -- Blackrook Hold
-		[200] = 3, -- Halls of Valor
-		[206] = 2, -- Neltharion's Lair
-		[207] = 2, -- Vault of the Wardens
-		[208] = 1, -- Maw of Souls
-		[209] = 3, -- The Arcway
-		[210] = 2, -- Court of Stars
-		[227] = 2, -- Return to Karazhan: Lower
-		[233] = 2, -- Cathedral of Eternal Night
-		[234] = 2, -- Return to Karazhan: Upper
-		[239] = 2, -- The Seat of the Triumvirate
-	},
+	-- Fast
+	[244] = 420, -- Atal'Dazar
+	[245] = 420, -- Freehold
+	[251] = 420, -- The Underrot
+
+	-- Medium
+	[246] = 540, -- Tol Dagor
+	[247] = 540, -- The Motherlode
+	[248] = 540, -- Waycrest Manor
+	[250] = 540, -- Temple of Sethraliss
+	[353] = 540, -- Siege of Boralus
+
+	--Slow
+	[249] = 660, -- King's Rest
+	[252] = 660, -- Shrine of the Storm
 }
+--]]
 iKS.keystonesToMapIDs = {
 	[197] = 1456, -- Eye of Azhara
 	[198] = 1466, -- Darkhearth Thicket
@@ -126,6 +103,7 @@ local sortedAffixes = {
 	--[15] = ?, --Relentless
 	[16] = 4, --Infested
 	[117] = 4, --Reaping
+	[119] = 4, -- Beguiling
 }
 
 iKS.affixCycles = {
@@ -137,10 +115,10 @@ iKS.affixCycles = {
 	{10,5,14}, -- Teeming, Quaking, Fortified
 	{9,6,4}, -- Raging, Necrotic, Tyrannical
 	{10,7,2}, -- Bolstering, Skittish, Fortified
-	{9,5,3}, -- Teeming, Volanic, Tyrannical
+	{9,5,3}, -- Teeming, Volcanic, Tyrannical
 	{10,8,12}, -- Sanguine, Grievous, Fortified
 	{9,7,13}, -- Bolstering, Explosive, Tyrannical
-	{10,11,14}, -- Bursting, Quaking, Fortified
+	{10,3,14}, -- Bursting, Volcanic, Fortified
 }
 --C_MythicPlus.GetLastWeeklyBestInformation();
 --[[
@@ -178,6 +156,7 @@ local function spairs(t, order)
 end
 function iKS:getAP(level, map, current, onlyNumber, forSummary)
 	if level and map then
+		--[[
 		local dif = iKS.apFromDungeons.dif[map] or 2 -- default to normal
 		if level >= 15 then
 			ap = (iKS.apFromDungeons[dif].m+(level-15)*iKS.apFromDungeons[dif].b)
@@ -191,13 +170,15 @@ function iKS:getAP(level, map, current, onlyNumber, forSummary)
 			ap = iKS.apFromDungeons[dif].p
 		end
 		if onlyNumber then
-			return ap/1e9
+			return ap
 		else
-			return string.format('%.2fB', ap/1e9)
+			return string.format('%.2f', ap)
 		end
+		--]]
+		return 0
 	elseif level then
 		if level > 0 then
-			return 1500 + (level-2)*50
+			return 3000 + (level-2)*75
 		else
 			return forSummary and '-' or 0
 		end
@@ -207,6 +188,21 @@ function iKS:getAP(level, map, current, onlyNumber, forSummary)
 		else
 			return '-'
 		end
+	end
+end
+function iKS:getResiduum(level, numberOnly, forSummary)
+	if not level or level == 0 then
+		return forSummary and "-" or 0
+	end
+	if level <= 10 then
+		if current then return 0 end
+		return numberOnly and 17e3 or "17k"
+	elseif level <= 20 then
+		local value = 17e3 + (level-10)*900
+		return numberOnly and value or string.format("%.1fk", value/1e3)
+	else -- assume it will grow 650 per level
+		local value = 26e3 + (level-20)*650
+		return numberOnly and value or string.format("%.2fk", value/1e3)
 	end
 end
 function iKS:weeklyReset()
@@ -604,20 +600,20 @@ end
 local function ChatHandling(msg, channel)
 	if not msg then return end -- not sure if this can even happen, maybe?
 	msg = msg:lower()
-	if msg == '.keys' then
+	if msg == '.keys' or msg == "!keys" then
 		iKS:PasteKeysToChat(false,channel)
-	elseif msg == '.weekly' then
+	elseif msg == '.weekly' or msg == "!weekly" then
 		iKS:PasteKeysToChat(true,channel,nil,iKS.currentMax,nil, true)
-	elseif msg:find('^.allkeys') then
-		local level = msg:match('^.allkeys (%d*)')
-		if msg:match('^.allkeys (%d*)%+$') then -- .allkeys x+
-			local level = msg:match('^.allkeys (%d*)%+$')
+	elseif msg:find('^[!%.]allkeys') then
+		local level = msg:match('^[!%.]allkeys (%d*)')
+		if msg:match('^[!%.]allkeys (%d*)%+$') then -- .allkeys x+
+			local level = msg:match('^[!%.]allkeys (%d*)%+$')
 			iKS:PasteKeysToChat(true,channel,nil,tonumber(level))
-		elseif msg:match('^.allkeys (%d*)%-(%d*)$') then -- .allkeys x-y
-			local minlevel, maxlevel = msg:match('^.allkeys (%d*)%-(%d*)$')
+		elseif msg:match('^[!%.]allkeys (%d*)%-(%d*)$') then -- .allkeys x-y
+			local minlevel, maxlevel = msg:match('^[!%.]allkeys (%d*)%-(%d*)$')
 			iKS:PasteKeysToChat(true,channel,nil, tonumber(minlevel), tonumber(maxlevel))
-		elseif msg:match('^.allkeys (%d*)') then -- .allkeys 15
-			local level = msg:match('^.allkeys (%d*)')
+		elseif msg:match('^[!%.]allkeys (%d*)') then -- .allkeys 15
+			local level = msg:match('^[!%.]allkeys (%d*)')
 			iKS:PasteKeysToChat(true,channel,tonumber(level))
 		else
 			iKS:PasteKeysToChat(true,channel)
@@ -800,12 +796,25 @@ function iKS:createNewLine()
 	f.ap.text:SetText(#iKS.frames == 1 and 'AP' or '')
 	f.ap.text:Show()
 
+	f.tr = CreateFrame('frame', nil , iKS.anchor)
+	f.tr:SetSize(50,20)
+	f.tr:SetBackdrop(iKS.bd)
+	f.tr:SetBackdropColor(.1,.1,.1,.9)
+	f.tr:SetBackdropBorderColor(0,0,0,1)
+	f.tr:SetPoint('TOPLEFT', f.ap, 'TOPRIGHT', -1,0)
+
+	f.tr.text = f.ap:CreateFontString()
+	f.tr.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+	f.tr.text:SetPoint('CENTER', f.tr, 'CENTER', 0,0)
+	f.tr.text:SetText(#iKS.frames == 1 and 'TR' or '')
+	f.tr.text:Show()
+
 	f.isle = CreateFrame('frame', nil , iKS.anchor)
 	f.isle:SetSize(50,20)
 	f.isle:SetBackdrop(iKS.bd)
 	f.isle:SetBackdropColor(.1,.1,.1,.9)
 	f.isle:SetBackdropBorderColor(0,0,0,1)
-	f.isle:SetPoint('TOPLEFT', f.ap, 'TOPRIGHT', -1,0)
+	f.isle:SetPoint('TOPLEFT', f.tr, 'TOPRIGHT', -1,0)
 
 	f.isle.text = f.ap:CreateFontString()
 	f.isle.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
@@ -825,12 +834,13 @@ local function reColor(f, faction)
 	f.max:SetBackdropColor(r,g,b,.9)
 	f.ilvl:SetBackdropColor(r,g,b,.9)
 	f.ap:SetBackdropColor(r,g,b,.9)
+	f.tr:SetBackdropColor(r,g,b,.9)
 	f.isle:SetBackdropColor(r,g,b,.9)
 end
 function iKS:createMainWindow()
 	if not iKS.anchor then
 		iKS.anchor = CreateFrame('frame', nil, UIParent)
-		iKS.anchor:SetSize(1,1)
+		iKS.anchor:SetSize(2,1)
 	end
 	if iKeystonesConfig.windowPos == 1 then -- Screen one
 		local width = math.floor(UIParent:GetWidth()/4)
@@ -892,6 +902,7 @@ function iKS:createMainWindow()
 		name = 96,
 		key = 146,
 		ap = 46,
+		tr = 46,
 		isle = 46,
 	}
 	local treasure = '|TInterface\\Icons\\inv_misc_treasurechest02b:16|t'
@@ -906,6 +917,7 @@ function iKS:createMainWindow()
 		f.max:Show()
 		f.ilvl:Show()
 		f.ap:Show()
+		f.tr:Show()
 		f.isle:Show()
 		if v.server == GetRealmName() then
 			f.name.text:SetText(string.format('%s|c%s%s\124r', (v.canLoot and treasure or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name))
@@ -917,6 +929,7 @@ function iKS:createMainWindow()
 		local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(v.maxCompleted)
 		f.ilvl.text:SetText(v.maxCompleted > 0 and ilvl or '-')
 		f.ap.text:SetText(iKS:getAP(v.maxCompleted,nil,nil,nil,true))
+		f.tr.text:SetText(iKS:getResiduum(v.maxCompleted,nil,true))
 		f.isle.text:SetText((v.isle and v.isle.done and '|cff00ff00100%') or (v.isle and (v.isle.progress .."%")) or '0%')
 		if f.name.text:GetWidth() > maxSizes.name then
 			maxSizes.name = f.name.text:GetWidth()
@@ -926,6 +939,9 @@ function iKS:createMainWindow()
 		end
 		if f.ap.text:GetWidth() > maxSizes.ap then
 			maxSizes.ap = f.ap.text:GetWidth()
+		end
+		if f.tr.text:GetWidth() > maxSizes.tr then
+			maxSizes.tr = f.tr.text:GetWidth()
 		end
 		if f.isle.text:GetWidth() > maxSizes.isle then
 			maxSizes.isle = f.isle.text:GetWidth()
@@ -940,6 +956,7 @@ function iKS:createMainWindow()
 		f.name:SetWidth(maxSizes.name+4)
 		f.key:SetWidth(maxSizes.key+4)
 		f.ap:SetWidth(maxSizes.ap+4)
+		f.tr:SetWidth(maxSizes.tr+4)
 		f.isle:SetWidth(maxSizes.isle+4)
 	end
 	for j = i+1, #iKS.frames do
@@ -949,9 +966,10 @@ function iKS:createMainWindow()
 		f.max:Hide()
 		f.ilvl:Hide()
 		f.ap:Hide()
+		f.tr:Hide()
 		f.isle:Hide()
 	end
-	local w = maxSizes.name+maxSizes.key+maxSizes.ap+maxSizes.isle+100 --+max(50)+ilvl(50)
+	local w = maxSizes.name+maxSizes.key+maxSizes.ap+maxSizes.tr+maxSizes.isle+100-5 --+max(50)+ilvl(50)
 	iKS.anchor:SetWidth(w)
 
 	iKS.affixes.aff2:ClearAllPoints()
@@ -975,12 +993,10 @@ function iKS:addToTooltip(self, map, keyLevel)
 	local wIlvl, ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(keyLevel)
 	self:AddLine(' ')
 	self:AddDoubleLine(string.format('Items: %s |cff00ff00+1|r', (keyLevel > iKS.currentMax and (2+(keyLevel-iKS.currentMax)*.4) or 2)), 'ilvl: ' .. ilvl)
-	if keyLevel > iKeystonesDB[player].maxCompleted then
-		local weeklyDif = iKS:getAP(keyLevel, nil, nil, true) - iKS:getAP(iKeystonesDB[player].maxCompleted, nil, nil, true)
-		self:AddDoubleLine(string.format('AP: |cff00ff00%.2f|rB', iKS:getAP(keyLevel, map,nil,true)), string.format('Weekly: |cff00ff00+%.2f|rB', weeklyDif))
-	else
-		self:AddLine(string.format('AP: |cff00ff00%.2f|rB', iKS:getAP(keyLevel, map,nil,true)))
-	end
+	--if keyLevel > iKeystonesDB[player].maxCompleted then
+		self:AddDoubleLine(string.format('Weekly: |cff00ff00+%s|rap', iKS:getAP(keyLevel, nil, nil, true) - iKS:getAP(iKeystonesDB[player].maxCompleted, nil, nil, true)),
+		string.format('TR: |cff00ff00+%.1fk|r', (iKS:getResiduum(keyLevel,true) - iKS:getResiduum(iKeystonesDB[player].maxCompleted, true))/1e3))
+	--end
 end
 local function gameTooltipScanning(self)
 	local itemName, itemLink = self:GetItem()
@@ -1081,14 +1097,18 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 		elseif msg:match("^(%d-)$") then
 			local lvl = msg:match("^(%d-)$")
 			local health, damage = C_ChallengeMode.GetPowerLevelDamageHealthMod(lvl)
+			local wIlvl, ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(lvl)
+			if not ilvl then
+				ilvl = UNKNOWN
+			end
 			if not health or not damage then
 				print("iKS: No data for level: " .. lvl)
 			elseif not iKS.currentAffixes[1] then
-				print(string.format("iKS: Didn't find Fortified orTyrannical affix\nBase Multipliers: Health %.2f - Damage %.2f", 1+health/100, 1+damage/100))
+				print(string.format("iKS: Didn't find Fortified orTyrannical affix\nBase Multipliers: Health %.2f - Damage %.2f\niLvL: %s", 1+health/100, 1+damage/100, ilvl))
 			elseif iKS.currentAffixes[1] == 9 then -- Tyrannical
-				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f", lvl, (1+health/100)*1.4, (1+damage/100)*1.15, 1+health/100, 1+damage/100))
+				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f\niLvL: %s", lvl, (1+health/100)*1.4, (1+damage/100)*1.15, 1+health/100, 1+damage/100, ilvl))
 			else -- Fortified
-				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f", lvl, 1+health/100, 1+damage/100, (1+health/100)*1.2, (1+damage/100)*1.3))
+				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f\niLvL: %s", lvl, 1+health/100, 1+damage/100, (1+health/100)*1.2, (1+damage/100)*1.3, ilvl))
 			end
 		else
 			iKS:help()

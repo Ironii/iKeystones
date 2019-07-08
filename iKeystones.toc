@@ -1,8 +1,8 @@
-## Interface: 80100
+## Interface: 80200
 ## Title: iKeystones
 ## Notes: Tracks your keystones
 ## Author: Ironi
-## Version: 1.723
+## Version: 1.800
 ## DefaultState: enabled
 
 ## SavedVariables: iKeystonesDB, iKeystonesConfig
