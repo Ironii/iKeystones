@@ -275,8 +275,14 @@ function iKS:createPlayer()
 				canLoot = false,
 				faction = UnitFactionGroup('player'),
 				isle = {
-					progress = string.format("%0.f", isleProgress/isleMax*100),
+					progress = "0%",
 					done = isleDone,
+				},
+				pvp = {
+					done = false,
+					progress = 0,
+					lootTier = 0,
+					canLoot = false,
 				},
 			}
 			return true
@@ -519,7 +525,7 @@ function addon:PLAYER_LOGIN()
 		end
 	end)
 end
-local version = 1.900
+local version = 1.901
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
