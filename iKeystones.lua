@@ -13,6 +13,8 @@ addon:RegisterEvent('BAG_UPDATE')
 addon:RegisterEvent('CRITERIA_UPDATE')
 addon:RegisterEvent('QUEST_LOG_UPDATE')
 addon:RegisterEvent('ENCOUNTER_LOOT_RECEIVED')
+addon:RegisterEvent('CHAT_MSG_ADDON')
+C_ChatInfo.RegisterAddonMessagePrefix('iKeystones')
 --addon:RegisterEvent('PVP_MATCH_INACTIVE')
 
 --Chat events
@@ -504,7 +506,8 @@ function iKS:help()
 /iks whitelist (w) - enable tracking for this character (remove ignore)
 /iks help (h) - show this help
 /iks delete (d) characterName serverName - delete specific character
-/iks list - paste all dungeon ids]])
+/iks list - paste all dungeon ids
+/iks guild (g) - request keys from guild]])
 end
 function addon:PLAYER_LOGIN()
 	player = UnitGUID('player')
@@ -525,7 +528,7 @@ function addon:PLAYER_LOGIN()
 		end
 	end)
 end
-local version = 1.901
+local version = 1.910
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -1126,6 +1129,146 @@ function iKS:addToTooltip(self, map, keyLevel)
 		string.format('TR: |cff00ff00+%.1fk|r', (iKS:getResiduum(keyLevel,true) - iKS:getResiduum(iKeystonesDB[player].maxCompleted, true))/1e3))
 	--end
 end
+iKS.waitingForReplies = false
+iKS.guildKeysList = {}
+function addon:CHAT_MSG_ADDON(prefix,msg,chatType,sender)
+	if prefix == 'iKeystones' and chatType == "GUILD" then
+		if msg == 'keyCheck' then
+			local faction = UnitFactionGroup('player')
+			local keys = {}
+			for guid,data in pairs(iKeystonesDB) do
+				if data.faction == faction and data.key.map then
+					table.insert(keys, {guid = guid, class = data.class, name = data.name, map = data.key.map, level = data.key.level})
+				end
+			end
+			local str = ""
+			for i = 1, #keys do
+				str = str .. string.format("{%s;%s;%s;%s;%s}", keys[i].guid, keys[i].name, keys[i].class, keys[i].map, keys[i].level)
+				if i % 3 == 0 or i == #keys then
+					C_ChatInfo.SendAddonMessage("iKeystones", str, "GUILD")
+					str = ""
+				end
+			end
+		elseif iKS.waitingForReplies and msg then
+			for v in string.gmatch(msg, '{(.-)}') do
+				local guid, name, class, map, level = strsplit(";", v)
+					if not iKS.guildKeysList[sender] then
+						iKS.guildKeysList[sender] = {}
+					end
+				iKS.guildKeysList[sender][guid] = {name = name, class = class, map = map, level = tonumber(level)} -- use guid as key to avoid multiple entries for same character
+			end
+		end
+	end
+end
+function iKS:showGuildKeys()
+	if iKS.guildKeys and iKS.guildKeys:IsShown() then
+		iKS.guildKeys:Hide()
+		return true
+	end
+	if not iKS.guildKeys then
+		iKS.guildKeys = CreateFrame('ScrollingMessageFrame', nil, UIParent)
+		iKS.guildKeys:SetSize(500,600)
+		iKS.guildKeys:SetBackdrop(iKS.bd)
+		iKS.guildKeys:SetBackdropColor(.1,.1,.1,.9)
+		iKS.guildKeys:SetBackdropBorderColor(0,0,0,1)
+		if iKeystonesConfig.windowPos == 1 then -- Screen one
+			local width = math.floor(UIParent:GetWidth()/4)
+			iKS.guildKeys:SetPoint('TOP', UIParent, 'TOP', -width+1,-50)
+		elseif iKeystonesConfig.windowPos == 2 then -- Screen two
+			local width = math.floor(UIParent:GetWidth()/4)
+			iKS.guildKeys:SetPoint('TOP', UIParent, 'TOP', width,-50)
+		else
+			iKS.guildKeys:SetPoint('TOP', UIParent, 'TOP', 0,-50)
+		end
+		iKS.guildKeys:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 13)
+		iKS.guildKeys:SetFading(false)
+		iKS.guildKeys:SetInsertMode("BOTTOM")
+		iKS.guildKeys:SetJustifyH("LEFT")
+		iKS.guildKeys:SetIndentedWordWrap(false)
+		iKS.guildKeys:SetMaxLines(3000)
+		iKS.guildKeys:SetSpacing(2)
+		iKS.guildKeys:EnableMouseWheel(true)
+		iKS.guildKeys:SetScript("OnMouseWheel", function(self, delta)
+			--iEET:ScrollContent(delta)
+			if delta == -1 then
+				local offSet
+				if IsShiftKeyDown() then
+					offSet = self:GetScrollOffset()-20
+				else
+					offSet = self:GetScrollOffset()-1
+				end
+					self:SetScrollOffset(offSet)
+				--iEET.mainFrameSlider:SetValue(iEET.maxScrollRange-offSet)
+			else
+				local offSet
+				if IsShiftKeyDown() then
+					offSet = self:GetScrollOffset()+20
+				else
+					offSet = self:GetScrollOffset()+1
+				end
+					self:SetScrollOffset(offSet)
+				--iEET.mainFrameSlider:SetValue(iEET.maxScrollRange-offSet)
+			end
+		end)
+		iKS.guildKeys:SetFrameStrata('HIGH')
+		iKS.guildKeys:SetFrameLevel(2)
+		iKS.guildKeys:EnableMouse(true)
+		--Title
+		iKS.guildKeysTitle = CreateFrame('frame', nil , iKS.guildKeys)
+		iKS.guildKeysTitle:SetSize(500,20)
+		iKS.guildKeysTitle:SetBackdrop(iKS.bd)
+		iKS.guildKeysTitle:SetBackdropColor(.1,.1,.1,.9)
+		iKS.guildKeysTitle:SetBackdropBorderColor(0,0,0,1)
+		iKS.guildKeysTitle:SetPoint('bottom', iKS.guildKeys, 'top', 0,1)
+
+		iKS.guildKeysTitle.text = iKS.guildKeysTitle:CreateFontString()
+		iKS.guildKeysTitle.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+		iKS.guildKeysTitle.text:SetPoint('center', iKS.guildKeysTitle, 'center', 0,0)
+		iKS.guildKeysTitle.text:SetText('Guild keystones')
+		--Exit
+		iKS.guildKeysTitle.exit = CreateFrame('frame', nil , iKS.guildKeys)
+		iKS.guildKeysTitle.exit:SetSize(20,20)
+		iKS.guildKeysTitle.exit:SetFrameStrata("DIALOG")
+		iKS.guildKeysTitle.exit:SetBackdrop(iKS.bd)
+		iKS.guildKeysTitle.exit:SetBackdropColor(.1,.1,.1,.9)
+		iKS.guildKeysTitle.exit:SetBackdropBorderColor(1,0,0,1)
+		iKS.guildKeysTitle.exit:SetPoint('topright', iKS.guildKeysTitle, 'topright', 0,0)
+		iKS.guildKeysTitle.exit:EnableMouse(true)
+		iKS.guildKeysTitle.exit:SetScript("OnMouseDown", function() iKS:showGuildKeys() end)
+
+		iKS.guildKeysTitle.exit.text = iKS.guildKeysTitle.exit:CreateFontString()
+		iKS.guildKeysTitle.exit.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+		iKS.guildKeysTitle.exit.text:SetPoint('center', iKS.guildKeysTitle.exit, 'center', 0,0)
+		iKS.guildKeysTitle.exit.text:SetText('x')
+		--Loading
+		iKS.guildKeysLoadingText = iKS.guildKeysTitle:CreateFontString()
+		iKS.guildKeysLoadingText:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 18, 'OUTLINE')
+		iKS.guildKeysLoadingText:SetPoint('center', iKS.guildKeys, 'center', 0,0)
+		iKS.guildKeysLoadingText:SetText('Loading...')
+		iKS.guildKeys:SetScript("OnShow", function()
+			iKS.guildKeysLoadingText:Show()
+		end)
+	else
+		iKS.guildKeys:Clear()
+		iKS.guildKeys:Show()
+	end
+end
+function iKS:updateGuildKeys()
+	iKS.waitingForReplies = false
+	iKS.guildKeysLoadingText:Hide()
+	for sender,chars in spairs(iKS.guildKeysList) do
+		sender = sender:gsub("-(.*)", "")
+		sender =  iCN_GetName and iCN_GetName(sender) or sender
+		iKS.guildKeys:AddMessage(sender)
+		for _, data in spairs(chars, function(t,a,b) return t[b].level < t[a].level end) do
+			local mapName = C_ChallengeMode.GetMapUIInfo(data.map)
+			iKS.guildKeys:AddMessage(string.format("    |c%s%s|r - %s%s|r %s", RAID_CLASS_COLORS[data.class].colorStr, data.name, iKS:getItemColor(data.level), data.level, mapName))
+		end
+		iKS.guildKeys:AddMessage("----------")
+	end
+	iKS.guildKeysList = nil
+	iKS.guildKeysList = {}
+end
 local function gameTooltipScanning(self)
 	local itemName, itemLink = self:GetItem()
 	if not (itemLink and itemLink:find('Hkeystone')) then
@@ -1222,6 +1365,16 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 			iKeystonesConfig.windowPos = 2
 		elseif msg == "screennormal" then
 			iKeystonesConfig.windowPos = 0
+		elseif msg == "g" or msg == "guild" then
+			if not iKS.waitingForReplies then -- wait for old request to finish
+				iKS.guildKeysList = nil
+				iKS.guildKeysList = {}
+				local hide = iKS:showGuildKeys()
+				if hide then return end
+				iKS.waitingForReplies = true
+				C_ChatInfo.SendAddonMessage("iKeystones", "keyCheck", "GUILD")
+				C_Timer.After(2, function() iKS:updateGuildKeys() end)
+			end
 		elseif msg == "list" then
 			local t = C_ChallengeMode.GetMapTable()
 			for k,v in pairs(t) do
