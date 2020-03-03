@@ -130,12 +130,12 @@ iKS.affixCycles = {
 	{10,7,12}, -- Fortified, Bolstering, Grievous
 	{9,6,13},-- Tyrannical, Raging, Explosive
 	{10,8,12},	-- Fortified, Sanguine, Grievous
-	{9,5,12}, -- Tyrannical, Teeming, Volcanic
+	{9,5,3}, -- Tyrannical, Teeming, Volcanic
 	{10,7,2}, -- Fortified, Bolstering, Skittish
 	{9,11,4}, -- Tyrannical, Bursting, Necrotic
 	{10,8,14}, -- Fortified, Sanguine, Quaking
 	{9,7,13}, -- Tyrannical, Bolstering, Explosive
-	{10,3,14}, -- Fortified, Bursting, Volcanic
+	{10,11,3}, -- Fortified, Bursting, Volcanic
 	{9,6,4}, -- Tyrannical, Raging, Necrotic
 	{10,5,14}, -- Fortified, Teeming, Quaking
 	{9,11,2}, -- Tyrannical, Bursting, Skittish
@@ -506,7 +506,7 @@ function iKS:help()
 /iks whitelist (w) - enable tracking for this character (remove ignore)
 /iks help (h) - show this help
 /iks delete (d) characterName serverName - delete specific character
-/iks list - paste all dungeon ids
+/iks list (i) - paste all dungeon ids
 /iks guild (g) - request keys from guild]])
 end
 function addon:PLAYER_LOGIN()
@@ -528,7 +528,7 @@ function addon:PLAYER_LOGIN()
 		end
 	end)
 end
-local version = 1.910
+local version = 1.911
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -1017,7 +1017,8 @@ local function reSize(maxFrames)
 end
 function iKS:createMainWindow()
 	if not iKS.anchor then
-		iKS.anchor = CreateFrame('frame', nil, UIParent)
+		iKS.anchor = CreateFrame('frame', "iKeystonesWindowAnchor", UIParent)
+		tinsert(UISpecialFrames,"iKeystonesWindowAnchor")
 		iKS.anchor:SetSize(2,2)
 	end
 	if iKeystonesConfig.windowPos == 1 then -- Screen one
@@ -1138,24 +1139,33 @@ function addon:CHAT_MSG_ADDON(prefix,msg,chatType,sender)
 			local keys = {}
 			for guid,data in pairs(iKeystonesDB) do
 				if data.faction == faction and data.key.map then
-					table.insert(keys, {guid = guid, class = data.class, name = data.name, map = data.key.map, level = data.key.level})
+					table.insert(keys, {guid = guid, class = data.class, name = data.name, map = data.key.map, level = data.key.level, weeklyMax = data.maxCompleted})
 				end
+			end
+			
+			if #keys == 0 then -- no keys
+				C_ChatInfo.SendAddonMessage("iKeystones", "-", "GUILD")
+				return
 			end
 			local str = ""
 			for i = 1, #keys do
-				str = str .. string.format("{%s;%s;%s;%s;%s}", keys[i].guid, keys[i].name, keys[i].class, keys[i].map, keys[i].level)
+				str = str .. string.format("{%s;%s;%s;%s;%s;%s}", keys[i].guid, keys[i].name, keys[i].class, keys[i].map, keys[i].level, keys[i].weeklyMax)
 				if i % 3 == 0 or i == #keys then
 					C_ChatInfo.SendAddonMessage("iKeystones", str, "GUILD")
 					str = ""
 				end
 			end
 		elseif iKS.waitingForReplies and msg then
-			for v in string.gmatch(msg, '{(.-)}') do
-				local guid, name, class, map, level = strsplit(";", v)
-					if not iKS.guildKeysList[sender] then
-						iKS.guildKeysList[sender] = {}
-					end
-				iKS.guildKeysList[sender][guid] = {name = name, class = class, map = map, level = tonumber(level)} -- use guid as key to avoid multiple entries for same character
+			if msg == "-" then
+				iKS.guildKeysList[sender] = {noKeystones = true}
+			else
+				for v in string.gmatch(msg, '{(.-)}') do
+					local guid, name, class, map, level, weeklyMax = strsplit(";", v)
+						if not iKS.guildKeysList[sender] then
+							iKS.guildKeysList[sender] = {}
+						end
+					iKS.guildKeysList[sender][guid] = {name = name, class = class, map = map, level = tonumber(level), weeklyMax = tonumber(weeklyMax)} -- use guid as key to avoid multiple entries for same character
+				end
 			end
 		end
 	end
@@ -1166,7 +1176,8 @@ function iKS:showGuildKeys()
 		return true
 	end
 	if not iKS.guildKeys then
-		iKS.guildKeys = CreateFrame('ScrollingMessageFrame', nil, UIParent)
+		iKS.guildKeys = CreateFrame('ScrollingMessageFrame', "iKeystonesGuildWindow", UIParent)
+		tinsert(UISpecialFrames,"iKeystonesGuildWindow")
 		iKS.guildKeys:SetSize(500,600)
 		iKS.guildKeys:SetBackdrop(iKS.bd)
 		iKS.guildKeys:SetBackdropColor(.1,.1,.1,.9)
@@ -1253,16 +1264,39 @@ function iKS:showGuildKeys()
 		iKS.guildKeys:Show()
 	end
 end
-function iKS:updateGuildKeys()
+function iKS:updateGuildKeys(_min,_max,_map)
 	iKS.waitingForReplies = false
 	iKS.guildKeysLoadingText:Hide()
+	local exactLevel = (_min and _max and _min == _max and _min) or false
 	for sender,chars in spairs(iKS.guildKeysList) do
 		sender = sender:gsub("-(.*)", "")
 		sender =  iCN_GetName and iCN_GetName(sender) or sender
 		iKS.guildKeys:AddMessage(sender)
-		for _, data in spairs(chars, function(t,a,b) return t[b].level < t[a].level end) do
-			local mapName = C_ChallengeMode.GetMapUIInfo(data.map)
-			iKS.guildKeys:AddMessage(string.format("    |c%s%s|r - %s%s|r %s", RAID_CLASS_COLORS[data.class].colorStr, data.name, iKS:getItemColor(data.level), data.level, mapName))
+		if chars.noKeystones then
+			iKS.guildKeys:AddMessage("    No keystones")
+		else
+			local empty = true
+			for _, data in spairs(chars, function(t,a,b) return t[b].level < t[a].level end) do
+				if iKS:shouldReportKey(data.level, exactLevel, _min, _max) then
+					if not _map or (_map and data.map == _map) then
+						empty = false
+						local mapName = C_ChallengeMode.GetMapUIInfo(data.map)
+						iKS.guildKeys:AddMessage(string.format("    |c%s%s|r (%s) - %s%s|r %s", RAID_CLASS_COLORS[data.class].colorStr, data.name, ((not data.weeklyMax and "?") or (data.weeklyMax == 0 and "-") or (data.weeklyMax >= iKS.currentMax and "|cff00ff00"..data.weeklyMax.."|r") or data.weeklyMax),iKS:getItemColor(data.level), data.level, mapName))
+					end
+				end
+			end
+			if empty then
+				if exactLevel then
+					iKS.guildKeys:AddMessage("    No keystones at " .. exactLevel)
+				elseif _min and not _max then
+					iKS.guildKeys:AddMessage("    No keystones at or above " .. _min)
+				elseif _min and _max then
+					iKS.guildKeys:AddMessage("    No keystones between ".._min.." and ".._max)
+				elseif _map then
+					local n = C_ChallengeMode.GetMapUIInfo(_map)
+					iKS.guildKeys:AddMessage("    No keystones for "..n)
+				end
+			end
 		end
 		iKS.guildKeys:AddMessage("----------")
 	end
@@ -1365,17 +1399,37 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 			iKeystonesConfig.windowPos = 2
 		elseif msg == "screennormal" then
 			iKeystonesConfig.windowPos = 0
-		elseif msg == "g" or msg == "guild" then
+		elseif msg == "g" or msg == "guild" or msg:find("g ") or msg:find("guild ") then
 			if not iKS.waitingForReplies then -- wait for old request to finish
 				iKS.guildKeysList = nil
 				iKS.guildKeysList = {}
 				local hide = iKS:showGuildKeys()
 				if hide then return end
+				local _min, _max, _map = false, false, false
+				if not (msg == "g" or msg == "guild") then
+					if msg:find('^g s') then
+						local mapID = msg:match('^g s (%d*)')
+						_map = tonumber(mapID)
+					else
+						if msg:match('^g (%d*)%+$') then -- .allkeys x+
+							local level = msg:match('^g (%d*)%+$')
+							_min = tonumber(level)
+						elseif msg:match('^g (%d*)%-(%d*)$') then -- .allkeys x-y
+							local minlevel, maxlevel = msg:match('^g (%d*)%-(%d*)$')
+							_min = tonumber(minlevel)
+							_max = tonumber(maxlevel)
+						elseif msg:match('^g (%d*)') then -- .allkeys 15
+							local level = msg:match('^g (%d*)')
+							_min = tonumber(level)
+							_max = _min
+						end
+					end	
+				end
 				iKS.waitingForReplies = true
 				C_ChatInfo.SendAddonMessage("iKeystones", "keyCheck", "GUILD")
-				C_Timer.After(2, function() iKS:updateGuildKeys() end)
-			end
-		elseif msg == "list" then
+				C_Timer.After(2, function() iKS:updateGuildKeys(_min, _max, _map) end)
+			end		
+		elseif msg == "list" or msg == "l" then
 			local t = C_ChallengeMode.GetMapTable()
 			for k,v in pairs(t) do
 				local n = C_ChallengeMode.GetMapUIInfo(v)
@@ -1391,11 +1445,29 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 			if not health or not damage then
 				print("iKS: No data for level: " .. lvl)
 			elseif not iKS.currentAffixes[1] then
-				print(string.format("iKS: Didn't find Fortified orTyrannical affix\nBase Multipliers: Health %.2f - Damage %.2f\niLvL: %s", 1+health/100, 1+damage/100, ilvl))
+				print(string.format("iKS: Didn't find Fortified orTyrannical affix\nBase Multipliers: Health %.2f - Damage %.2f\ndungeon iLvL: %s - Weekly iLvL: %s", 1+health/100, 1+damage/100, ilvl, wIlvl))
 			elseif iKS.currentAffixes[1] == 9 then -- Tyrannical
-				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f\niLvL: %s", lvl, (1+health/100)*1.4, (1+damage/100)*1.15, 1+health/100, 1+damage/100, ilvl))
+				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f\ndungeon iLvL: %s - Weekly iLvL: %s", lvl, (1+health/100)*1.4, (1+damage/100)*1.15, 1+health/100, 1+damage/100, ilvl, wIlvl))
 			else -- Fortified
-				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f\niLvL: %s", lvl, 1+health/100, 1+damage/100, (1+health/100)*1.2, (1+damage/100)*1.3, ilvl))
+				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f\ndungeon iLvL: %s - Weekly iLvL: %s", lvl, 1+health/100, 1+damage/100, (1+health/100)*1.2, (1+damage/100)*1.3, ilvl, wIlvl))
+			end
+		elseif msg:match("^(%d-) (%d-)$") then
+			local lvl, lvl2 = msg:match("^(%d-) (%d-)$")
+			local health, damage = C_ChallengeMode.GetPowerLevelDamageHealthMod(lvl)
+			local health2, damage2 = C_ChallengeMode.GetPowerLevelDamageHealthMod(lvl2)
+			if not health or not damage then
+				print("iKS: No data for level: " .. lvl)
+			elseif not health2 or not damage2 then
+				print("iKS: No data for level: " .. lvl2)
+			else
+				local function getDifference(arg1, arg2)
+					if arg1 > arg2 then
+						return (arg1/arg2*100-100)*-1
+					else
+						return arg2/arg1*100-100
+					end
+				end
+				print(string.format("iKS: Difference in health %.2f%% and in damage %.2f%%", getDifference(health, health2), getDifference(damage, damage2)))
 			end
 		else
 			iKS:help()
