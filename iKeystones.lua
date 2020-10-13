@@ -1,3 +1,6 @@
+--upvalues
+local _sformat, GetQuestObjectiveInfo, IsQuestFlaggedCompleted, _sgsub, _sgmatch, _smatch, _slower, SendChatMessage, _SendAddonMessage = string.format, GetQuestObjectiveInfo, C_QuestLog.IsQuestFlaggedCompleted, string.gsub, string.gmatch, string.match, string.lower, SendChatMessage, C_ChatInfo.SendAddonMessage
+
 local addon = CreateFrame('Frame');
 addon:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
@@ -15,16 +18,7 @@ addon:RegisterEvent('QUEST_LOG_UPDATE')
 addon:RegisterEvent('ENCOUNTER_LOOT_RECEIVED')
 addon:RegisterEvent('CHAT_MSG_ADDON')
 C_ChatInfo.RegisterAddonMessagePrefix('iKeystones')
---addon:RegisterEvent('PVP_MATCH_INACTIVE')
-
---Chat events
--- /dump GetQuestObjectiveInfo(53435, 1, false)
---
--- 57065 (pvp chest)
--- 55432 conquest reward
---
---
-
+--C_ChatInfo.RegisterAddonMessagePrefix('AstralKeys') -- AstralKeys guild support
 addon:RegisterEvent('CHAT_MSG_PARTY')
 addon:RegisterEvent('CHAT_MSG_PARTY_LEADER')
 
@@ -192,7 +186,7 @@ function iKS:getAP(level, map, current, onlyNumber, forSummary)
 		if onlyNumber then
 			return ap
 		else
-			return string.format('%.2f', ap)
+			return _sformat('%.2f', ap)
 		end
 		--]]
 		return 0
@@ -239,7 +233,7 @@ do
 			iKS.currentSeason = C_MythicPlus.GetCurrentSeason()
 		end
 		local value = trScaling[iKS.currentSeason](level)
-		return numberOnly and value or value >= 1e4 and string.format("%.2fk", value/1e3) or value
+		return numberOnly and value or value >= 1e4 and _sformat("%.2fk", value/1e3) or value
 	end
 end
 function iKS:weeklyReset()
@@ -301,7 +295,7 @@ function iKS:createPlayer()
 			local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(iKS.IsleQuests[playerFaction], 1, false))
 			local isleDone = IsQuestFlaggedCompleted(iKS.IsleQuests[playerFaction])
 			iKeystonesDB[player].isle = {
-				progress = string.format("%0.f", isleProgress/isleMax*100),
+				progress = _sformat("%0.f", isleProgress/isleMax*100),
 				done = isleDone,
 			}
 		end
@@ -342,7 +336,7 @@ function iKS:scanCharacterMaps()
 					if level and level > maxCompleted then
 						maxCompleted = level
 					end
-					break;
+					break
 				end
 			end
 		end
@@ -402,7 +396,7 @@ function iKS:getZoneInfo(mapID, zone)
 	end
 end
 function iKS:getKeystoneLink(keyLevel, map)
-	return string.format('%s|Hkeystone:%d:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', iKS:getItemColor(keyLevel), map, keyLevel, (keyLevel >= 4 and iKS.currentAffixes[2] or 0), (keyLevel >= 7 and iKS.currentAffixes[3] or 0), iKS.currentAffixes[1],((keyLevel >= 10 and iKS.currentAffixes[4]) and iKS.currentAffixes[4] or 0), iKS:getZoneInfo(map), keyLevel)
+	return _sformat('%s|Hkeystone:%d:%d:%d:%d:%d:%d|h[%s (%s)]|h|r', iKS:getItemColor(keyLevel), map, keyLevel, (keyLevel >= 4 and iKS.currentAffixes[2] or 0), (keyLevel >= 7 and iKS.currentAffixes[3] or 0), iKS.currentAffixes[1],((keyLevel >= 10 and iKS.currentAffixes[4]) and iKS.currentAffixes[4] or 0), iKS:getZoneInfo(map), keyLevel)
 end
 function iKS:printKeystones()
 	local allCharacters = {}
@@ -415,13 +409,13 @@ function iKS:printKeystones()
 		end
 		local str = ''
 		if data.server == GetRealmName() then
-			str = string.format('|c%s%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, itemLink, (data.maxCompleted >= iKS.currentMax and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
+			str = _sformat('|c%s%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, itemLink, (data.maxCompleted >= iKS.currentMax and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
 		else
-			str = string.format('|c%s%s-%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, data.server,itemLink,(data.maxCompleted >= iKS.currentMax and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
+			str = _sformat('|c%s%s-%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, data.server,itemLink,(data.maxCompleted >= iKS.currentMax and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
 		end
 		if data.maxCompleted > 0 then
 			local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(data.maxCompleted)
-			str = str.. string.format('|r (%d) AP: %s', ilvl, iKS:getAP(data.maxCompleted))
+			str = str.. _sformat('|r (%d) AP: %s', ilvl, iKS:getAP(data.maxCompleted))
 		end
 		print(str)
 	end
@@ -454,8 +448,8 @@ function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel, reques
 							if i > 0 then
 								str = str .. ' - '
 							end
-							itemLink = string.format('%s (%s)', iKS:getZoneInfo(data.key.map), data.key.level)
-							str = str..string.format('%s: %s', data.name, itemLink)
+							itemLink = _sformat('%s (%s)', iKS:getZoneInfo(data.key.map), data.key.level)
+							str = str.._sformat('%s: %s', data.name, itemLink)
 							i = i + 1
 							totalCounter = totalCounter + 1
 						end
@@ -528,7 +522,7 @@ function addon:PLAYER_LOGIN()
 		end
 	end)
 end
-local version = 1.911
+local version = 1.912
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -591,7 +585,7 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	if iKeystonesDB[player] then
 		iKeystonesDB[player].canLoot = C_MythicPlus.IsWeeklyRewardAvailable()
 	end
-	local affstring = string.format("%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
+	local affstring = _sformat("%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
 	--print("affixes:",affstring) -- debug
 	if iKeystonesConfig.affstring ~= affstring then
 		iKeystonesConfig.affstring = affstring
@@ -669,7 +663,7 @@ function addon:QUEST_LOG_UPDATE()
 		local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(iKS.IsleQuests[playerFaction], 1, false))
 		if not isleProgress or not isleMax then return end
 		iKeystonesDB[player].isle = {
-			progress = string.format("%0.f", isleProgress/isleMax*100),
+			progress = _sformat("%0.f", isleProgress/isleMax*100),
 			done = false,
 		}
 	end
@@ -768,7 +762,7 @@ local function chatFiltering(self, event, msg, ...)
 			tempTable[1] = iKS:getItemColor(tonumber(tempTable[16])) .. '|Hitem'
 			for k,v in pairs(tempTable) do
 				if v and v:match('%[.-%]') then
-					tempTable[k] = string.gsub(tempTable[k], '%[.-%]', string.format('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[15])), tonumber(tempTable[16]), tonumber(tempTable[16])), 1)
+					tempTable[k] = _sgsub(tempTable[k], '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[15])), tonumber(tempTable[16]), tonumber(tempTable[16])), 1)
 					break
 				end
 			end
@@ -790,7 +784,7 @@ local function chatFiltering(self, event, msg, ...)
 			tempTable[1] = iKS:getItemColor(tonumber(tempTable[3]), tonumber(tempTable[4])) .. '|Hkeystone'
 
 			local fullString = table.concat(tempTable, ':')
-			fullString = string.gsub(fullString, '%[.-%]', string.format('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[3])), tonumber(tempTable[4])), 1)
+			fullString = _sgsub(fullString, '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[3])), tonumber(tempTable[4])), 1)
 			return false, preLink..fullString, ...
 		end
 	end
@@ -829,7 +823,7 @@ function iKS:createNewLine()
 	--char -- key -- highest -- ap gain
 	iKS.frames[#iKS.frames+1] = {}
 	local f = iKS.frames[#iKS.frames]
-	f.name = CreateFrame('frame', nil , iKS.anchor)
+	f.name = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.name:SetSize(100,20)
 	f.name:SetBackdrop(iKS.bd)
 	f.name:SetBackdropColor(.1,.1,.1,.9)
@@ -842,7 +836,7 @@ function iKS:createNewLine()
 	f.name.text:SetText(#iKS.frames == 1 and 'Character' or '')
 	f.name.text:Show()
 
-	f.key = CreateFrame('frame', nil , iKS.anchor)
+	f.key = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.key:SetSize(150,20)
 	f.key:SetBackdrop(iKS.bd)
 	f.key:SetBackdropColor(.1,.1,.1,.9)
@@ -855,7 +849,7 @@ function iKS:createNewLine()
 	f.key.text:SetText(#iKS.frames == 1 and 'Current key' or '')
 	f.key.text:Show()
 
-	f.max = CreateFrame('frame', nil , iKS.anchor)
+	f.max = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.max:SetSize(50,20)
 	f.max:SetBackdrop(iKS.bd)
 	f.max:SetBackdropColor(.1,.1,.1,.9)
@@ -868,7 +862,7 @@ function iKS:createNewLine()
 	f.max.text:SetText(#iKS.frames == 1 and 'Max' or '')
 	f.max.text:Show()
 
-	f.ilvl = CreateFrame('frame', nil , iKS.anchor)
+	f.ilvl = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.ilvl:SetSize(50,20)
 	f.ilvl:SetBackdrop(iKS.bd)
 	f.ilvl:SetBackdropColor(.1,.1,.1,.9)
@@ -881,7 +875,7 @@ function iKS:createNewLine()
 	f.ilvl.text:SetText(#iKS.frames == 1 and 'iLvL' or '')
 	f.ilvl.text:Show()
 
-	f.ap = CreateFrame('frame', nil , iKS.anchor)
+	f.ap = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.ap:SetSize(50,20)
 	f.ap:SetBackdrop(iKS.bd)
 	f.ap:SetBackdropColor(.1,.1,.1,.9)
@@ -894,7 +888,7 @@ function iKS:createNewLine()
 	f.ap.text:SetText(#iKS.frames == 1 and 'AP' or '')
 	f.ap.text:Show()
 
-	f.tr = CreateFrame('frame', nil , iKS.anchor)
+	f.tr = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.tr:SetSize(50,20)
 	f.tr:SetBackdrop(iKS.bd)
 	f.tr:SetBackdropColor(.1,.1,.1,.9)
@@ -907,7 +901,7 @@ function iKS:createNewLine()
 	f.tr.text:SetText(#iKS.frames == 1 and 'TR' or '')
 	f.tr.text:Show()
 
-	f.isle = CreateFrame('frame', nil , iKS.anchor)
+	f.isle = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.isle:SetSize(50,20)
 	f.isle:SetBackdrop(iKS.bd)
 	f.isle:SetBackdropColor(.1,.1,.1,.9)
@@ -920,7 +914,7 @@ function iKS:createNewLine()
 	f.isle.text:SetText(#iKS.frames == 1 and 'Isle' or '')
 	f.isle.text:Show()
 
-	f.pvp = CreateFrame('frame', nil , iKS.anchor)
+	f.pvp = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.pvp:SetSize(50,20)
 	f.pvp:SetBackdrop(iKS.bd)
 	f.pvp:SetBackdropColor(.1,.1,.1,.9)
@@ -1037,7 +1031,7 @@ function iKS:createMainWindow()
 		--Create affix slots
 		iKS.affixes = {}
 		local f = iKS.affixes
-		f.aff2 = CreateFrame('frame', nil , iKS.anchor)
+		f.aff2 = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 		f.aff2:SetSize(150,20)
 		f.aff2:SetBackdrop(iKS.bd)
 		f.aff2:SetBackdropColor(.1,.1,.1,.9)
@@ -1050,7 +1044,7 @@ function iKS:createMainWindow()
 		f.aff2.text:SetText('Tyrannical')
 		--f.aff4.text:Show()
 
-		f.aff4 = CreateFrame('frame', nil , iKS.anchor)
+		f.aff4 = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 		f.aff4:SetSize(150,20)
 		f.aff4:SetBackdrop(iKS.bd)
 		f.aff4:SetBackdropColor(.1,.1,.1,.9)
@@ -1063,7 +1057,7 @@ function iKS:createMainWindow()
 		f.aff4.text:SetText('Teeming')
 		--f.aff7.text:Show()
 
-		f.aff7 = CreateFrame('frame', nil , iKS.anchor)
+		f.aff7 = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 		f.aff7:SetSize(150,20)
 		f.aff7:SetBackdrop(iKS.bd)
 		f.aff7:SetBackdropColor(.1,.1,.1,.9)
@@ -1092,18 +1086,18 @@ function iKS:createMainWindow()
 		f.isle:Show()
 		f.pvp:Show()
 		if v.server == GetRealmName() then
-			f.name.text:SetText(string.format('%s%s|c%s%s\124r', (v.canLoot and treasures.pve or ''),(v.pvp.canLoot and treasures.pvp[v.faction] or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name))
+			f.name.text:SetText(_sformat('%s%s|c%s%s\124r', (v.canLoot and treasures.pve or ''),(v.pvp.canLoot and treasures.pvp[v.faction] or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name))
 		else
-			f.name.text:SetText(string.format('%s%s|c%s%s\124r - %s',(v.canLoot and treasure or ''),(v.pvp.canLoot and treasures.pvp[v.faction] or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name, v.server))
+			f.name.text:SetText(_sformat('%s%s|c%s%s\124r - %s',(v.canLoot and treasure or ''),(v.pvp.canLoot and treasures.pvp[v.faction] or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name, v.server))
 		end
-		f.key.text:SetText(v.key.level and string.format('%s%s (%s)|r', iKS:getItemColor(v.key.level), iKS:getZoneInfo(v.key.map), v.key.level) or '-')
+		f.key.text:SetText(v.key.level and _sformat('%s%s (%s)|r', iKS:getItemColor(v.key.level), iKS:getZoneInfo(v.key.map), v.key.level) or '-')
 		f.max.text:SetText((not v.maxCompleted or v.maxCompleted == 0 and "-") or (v.maxCompleted >= iKS.currentMax and '|cff00ff00' .. v.maxCompleted) or (v.maxCompleted > 0 and v.maxCompleted))
 		local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(v.maxCompleted)
 		f.ilvl.text:SetText(v.maxCompleted > 0 and ilvl or '-')
 		f.ap.text:SetText(iKS:getAP(v.maxCompleted,nil,nil,nil,true))
 		f.tr.text:SetText(iKS:getResiduum(v.maxCompleted,nil,true))
 		f.isle.text:SetText((v.isle and v.isle.done and '|cff00ff00100%|r') or (v.isle and (v.isle.progress .."%")) or '0%')
-		f.pvp.text:SetText(v.pvp.done and string.format("|cff00ff00%d|r(%0.f%%)",select(2,C_PvP.GetRewardItemLevelsByTierEnum(math.max(v.pvp.lootTier, 0))), v.pvp.progress*100) or string.format("%0.f%%", v.pvp.progress*100))
+		f.pvp.text:SetText(v.pvp.done and _sformat("|cff00ff00%d|r(%0.f%%)",select(2,C_PvP.GetRewardItemLevelsByTierEnum(math.max(v.pvp.lootTier, 0))), v.pvp.progress*100) or _sformat("%0.f%%", v.pvp.progress*100))
 		reColor(f, v.faction)
 	end
 	for j = i+1, #iKS.frames do
@@ -1124,10 +1118,10 @@ function iKS:addToTooltip(self, map, keyLevel)
 	keyLevel = tonumber(keyLevel)
 	local wIlvl, ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(keyLevel)
 	self:AddLine(' ')
-	self:AddDoubleLine(string.format('Items: %s |cff00ff00+1|r', (keyLevel > iKS.currentMax and (2+(keyLevel-iKS.currentMax)*.4) or 2)), 'ilvl: ' .. ilvl)
+	self:AddDoubleLine(_sformat('Items: %s |cff00ff00+1|r', (keyLevel > iKS.currentMax and (2+(keyLevel-iKS.currentMax)*.4) or 2)), 'ilvl: ' .. ilvl)
 	--if keyLevel > iKeystonesDB[player].maxCompleted then
-		self:AddDoubleLine(string.format('Weekly: |cff00ff00+%s|rap', iKS:getAP(keyLevel, nil, nil, true) - iKS:getAP(iKeystonesDB[player].maxCompleted, nil, nil, true)),
-		string.format('TR: |cff00ff00+%.1fk|r', (iKS:getResiduum(keyLevel,true) - iKS:getResiduum(iKeystonesDB[player].maxCompleted, true))/1e3))
+		self:AddDoubleLine(_sformat('Weekly: |cff00ff00+%s|rap', iKS:getAP(keyLevel, nil, nil, true) - iKS:getAP(iKeystonesDB[player].maxCompleted, nil, nil, true)),
+		_sformat('TR: |cff00ff00+%.1fk|r', (iKS:getResiduum(keyLevel,true) - iKS:getResiduum(iKeystonesDB[player].maxCompleted, true))/1e3))
 	--end
 end
 iKS.waitingForReplies = false
@@ -1144,28 +1138,52 @@ function addon:CHAT_MSG_ADDON(prefix,msg,chatType,sender)
 			end
 			
 			if #keys == 0 then -- no keys
-				C_ChatInfo.SendAddonMessage("iKeystones", "-", "GUILD")
+				_SendAddonMessage("iKeystones", "-", "GUILD")
 				return
 			end
 			local str = ""
 			for i = 1, #keys do
-				str = str .. string.format("{%s;%s;%s;%s;%s;%s}", keys[i].guid, keys[i].name, keys[i].class, keys[i].map, keys[i].level, keys[i].weeklyMax)
+				str = str .. _sformat("{%s;%s;%s;%s;%s;%s}", keys[i].guid, keys[i].name, keys[i].class, keys[i].map, keys[i].level, keys[i].weeklyMax)
 				if i % 3 == 0 or i == #keys then
-					C_ChatInfo.SendAddonMessage("iKeystones", str, "GUILD")
+					_SendAddonMessage("iKeystones", str, "GUILD")
 					str = ""
 				end
 			end
 		elseif iKS.waitingForReplies and msg then
 			if msg == "-" then
-				iKS.guildKeysList[sender] = {noKeystones = true}
+				iKS.guildKeysList[sender] = {
+					chars = {noKeystones = true},
+					other = {},
+				}
 			else
-				for v in string.gmatch(msg, '{(.-)}') do
+				for v in _sgmatch(msg, '{(.-)}') do
 					local guid, name, class, map, level, weeklyMax = strsplit(";", v)
 						if not iKS.guildKeysList[sender] then
-							iKS.guildKeysList[sender] = {}
+							iKS.guildKeysList[sender] = {
+								chars = {},
+								other = {},
+							}
 						end
-					iKS.guildKeysList[sender][guid] = {name = name, class = class, map = map, level = tonumber(level), weeklyMax = tonumber(weeklyMax)} -- use guid as key to avoid multiple entries for same character
+					iKS.guildKeysList[sender].chars[guid] = {name = name, class = class, map = map, level = tonumber(level), weeklyMax = tonumber(weeklyMax)} -- use guid as key to avoid multiple entries for same character
 				end
+			end
+		end
+	elseif iKS.waitingForReplies and prefix == "AstralKeys" and chatType == "GUILD" then
+		if msg and msg:find("sync5") then
+			msg = msg:gsub("sync5 ", "")
+			local chars = {strsplit("_", msg)}
+			for _,v in pairs(chars) do
+				local char, class, dungeonID, keyLevel, weekly_best, week, timeStamp = v:match('(.+):(%a+):(%d+):(%d+):(%d+):(%d+):(%d)')
+				local name = strsplit("-", name)
+				if not iKS.guildKeysList[sender] then
+					iKS.guildKeysList[sender] = {
+						chars = {},
+						other = {
+							isExternal = true,
+						},
+					}
+				end
+				iKS.guildKeysList[sender][char] = {isExternal = true, name = name, class = class, map = dungeonID, level = tonumber(keyLevel), weeklyMax = tonumber(weekly_best)} -- use guid as key to avoid multiple entries for same character}
 			end
 		end
 	end
@@ -1176,7 +1194,7 @@ function iKS:showGuildKeys()
 		return true
 	end
 	if not iKS.guildKeys then
-		iKS.guildKeys = CreateFrame('ScrollingMessageFrame', "iKeystonesGuildWindow", UIParent)
+		iKS.guildKeys = CreateFrame('ScrollingMessageFrame', "iKeystonesGuildWindow", UIParent, BackdropTemplateMixin and "BackdropTemplate")
 		tinsert(UISpecialFrames,"iKeystonesGuildWindow")
 		iKS.guildKeys:SetSize(500,600)
 		iKS.guildKeys:SetBackdrop(iKS.bd)
@@ -1225,7 +1243,7 @@ function iKS:showGuildKeys()
 		iKS.guildKeys:SetFrameLevel(2)
 		iKS.guildKeys:EnableMouse(true)
 		--Title
-		iKS.guildKeysTitle = CreateFrame('frame', nil , iKS.guildKeys)
+		iKS.guildKeysTitle = CreateFrame('frame', nil , iKS.guildKeys, BackdropTemplateMixin and "BackdropTemplate")
 		iKS.guildKeysTitle:SetSize(500,20)
 		iKS.guildKeysTitle:SetBackdrop(iKS.bd)
 		iKS.guildKeysTitle:SetBackdropColor(.1,.1,.1,.9)
@@ -1237,7 +1255,7 @@ function iKS:showGuildKeys()
 		iKS.guildKeysTitle.text:SetPoint('center', iKS.guildKeysTitle, 'center', 0,0)
 		iKS.guildKeysTitle.text:SetText('Guild keystones')
 		--Exit
-		iKS.guildKeysTitle.exit = CreateFrame('frame', nil , iKS.guildKeys)
+		iKS.guildKeysTitle.exit = CreateFrame('frame', nil , iKS.guildKeys, BackdropTemplateMixin and "BackdropTemplate")
 		iKS.guildKeysTitle.exit:SetSize(20,20)
 		iKS.guildKeysTitle.exit:SetFrameStrata("DIALOG")
 		iKS.guildKeysTitle.exit:SetBackdrop(iKS.bd)
@@ -1268,20 +1286,20 @@ function iKS:updateGuildKeys(_min,_max,_map)
 	iKS.waitingForReplies = false
 	iKS.guildKeysLoadingText:Hide()
 	local exactLevel = (_min and _max and _min == _max and _min) or false
-	for sender,chars in spairs(iKS.guildKeysList) do
+	for sender,d in spairs(iKS.guildKeysList) do
 		sender = sender:gsub("-(.*)", "")
 		sender =  iCN_GetName and iCN_GetName(sender) or sender
-		iKS.guildKeys:AddMessage(sender)
-		if chars.noKeystones then
+		iKS.guildKeys:AddMessage(_sformat("%s %s", sender, d.other.isExternal and "*" or ""))
+		if d.chars.noKeystones then
 			iKS.guildKeys:AddMessage("    No keystones")
 		else
 			local empty = true
-			for _, data in spairs(chars, function(t,a,b) return t[b].level < t[a].level end) do
+			for _, data in spairs(d.chars, function(t,a,b) return t[b].level < t[a].level end) do
 				if iKS:shouldReportKey(data.level, exactLevel, _min, _max) then
 					if not _map or (_map and data.map == _map) then
 						empty = false
 						local mapName = C_ChallengeMode.GetMapUIInfo(data.map)
-						iKS.guildKeys:AddMessage(string.format("    |c%s%s|r (%s) - %s%s|r %s", RAID_CLASS_COLORS[data.class].colorStr, data.name, ((not data.weeklyMax and "?") or (data.weeklyMax == 0 and "-") or (data.weeklyMax >= iKS.currentMax and "|cff00ff00"..data.weeklyMax.."|r") or data.weeklyMax),iKS:getItemColor(data.level), data.level, mapName))
+						iKS.guildKeys:AddMessage(_sformat("    |c%s%s|r (%s) - %s%s|r %s", RAID_CLASS_COLORS[data.class].colorStr, data.name, ((not data.weeklyMax and "?") or (data.weeklyMax == 0 and "-") or (data.weeklyMax >= iKS.currentMax and "|cff00ff00"..data.weeklyMax.."|r") or data.weeklyMax),iKS:getItemColor(data.level), data.level, mapName))
 					end
 				end
 			end
@@ -1308,7 +1326,7 @@ local function gameTooltipScanning(self)
 	if not (itemLink and itemLink:find('Hkeystone')) then
 		return
 	end
-	local itemId, map, keyLevel,l4,l7,l10 = string.match(itemLink, 'keystone:(%d+):(%d+):(%d+):(%d+):(%d+):(%d+):(%d+)')
+	local itemId, map, keyLevel,l4,l7,l10 = _smatch(itemLink, 'keystone:(%d+):(%d+):(%d+):(%d+):(%d+):(%d+):(%d+)')
 	iKS:addToTooltip(self, map, keyLevel)
 end
 local function itemRefScanning(self)
@@ -1328,7 +1346,7 @@ SLASH_IKEYSTONES1 = "/ikeystones"
 SLASH_IKEYSTONES2 = "/iks"
 SlashCmdList["IKEYSTONES"] = function(msg)
 	if msg and msg:len() > 0 then
-		msg = string.lower(msg)
+		msg = _slower(msg)
 		if msg == 'reset' then
 			iKeystonesDB = nil
 			iKeystonesDB = {}
@@ -1356,11 +1374,11 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 					local aff1 = C_ChallengeMode.GetAffixInfo(iKS.affixCycles[nextCycle][1])
 					local aff2 = C_ChallengeMode.GetAffixInfo(iKS.affixCycles[nextCycle][2])
 					local aff3 = C_ChallengeMode.GetAffixInfo(iKS.affixCycles[nextCycle][3])
-					print(string.format('iKS: Next cycle : %s, %s, %s.',aff1, aff2, aff3))
+					print(_sformat('iKS: Next cycle : %s, %s, %s.',aff1, aff2, aff3))
 					return
 				end
 			end
-			print(string.format('iKS: Unknown cycle, contact author'))
+			print(_sformat('iKS: Unknown cycle, contact author'))
 		elseif msg == 'ignore' or msg == 'i' then
 			iKeystonesConfig.ignoreList[player] = true
 			iKeystonesDB[player] = nil
@@ -1386,7 +1404,7 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 				return
 			end
 			for guid,data in pairs(iKeystonesDB) do
-				if server == string.lower(data.server) and char == string.lower(data.name) then
+				if server == _slower(data.server) and char == _slower(data.name) then
 					iKeystonesDB[guid] = nil
 					print('iKS: Succesfully deleted:' ..char..'-'..server..'.')
 					return
@@ -1426,7 +1444,8 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 					end	
 				end
 				iKS.waitingForReplies = true
-				C_ChatInfo.SendAddonMessage("iKeystones", "keyCheck", "GUILD")
+				_SendAddonMessage("iKeystones", "keyCheck", "GUILD")
+				--_SendAddonMessage("AstralKeys", "request", "GUILD") -- AstralKeys support
 				C_Timer.After(2, function() iKS:updateGuildKeys(_min, _max, _map) end)
 			end		
 		elseif msg == "list" or msg == "l" then
@@ -1445,11 +1464,11 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 			if not health or not damage then
 				print("iKS: No data for level: " .. lvl)
 			elseif not iKS.currentAffixes[1] then
-				print(string.format("iKS: Didn't find Fortified orTyrannical affix\nBase Multipliers: Health %.2f - Damage %.2f\ndungeon iLvL: %s - Weekly iLvL: %s", 1+health/100, 1+damage/100, ilvl, wIlvl))
+				print(_sformat("iKS: Didn't find Fortified orTyrannical affix\nBase Multipliers: Health %.2f - Damage %.2f\ndungeon iLvL: %s - Weekly iLvL: %s", 1+health/100, 1+damage/100, ilvl, wIlvl))
 			elseif iKS.currentAffixes[1] == 9 then -- Tyrannical
-				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f\ndungeon iLvL: %s - Weekly iLvL: %s", lvl, (1+health/100)*1.4, (1+damage/100)*1.15, 1+health/100, 1+damage/100, ilvl, wIlvl))
+				print(_sformat("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f\ndungeon iLvL: %s - Weekly iLvL: %s", lvl, (1+health/100)*1.4, (1+damage/100)*1.15, 1+health/100, 1+damage/100, ilvl, wIlvl))
 			else -- Fortified
-				print(string.format("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f\ndungeon iLvL: %s - Weekly iLvL: %s", lvl, 1+health/100, 1+damage/100, (1+health/100)*1.2, (1+damage/100)*1.3, ilvl, wIlvl))
+				print(_sformat("iKS: Multipliers this week for level %d\nBosses: Health %.2f - Damage %.2f\nTrash: Health %.2f - Damage %.2f\ndungeon iLvL: %s - Weekly iLvL: %s", lvl, 1+health/100, 1+damage/100, (1+health/100)*1.2, (1+damage/100)*1.3, ilvl, wIlvl))
 			end
 		elseif msg:match("^(%d-) (%d-)$") then
 			local lvl, lvl2 = msg:match("^(%d-) (%d-)$")
@@ -1467,7 +1486,7 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 						return arg2/arg1*100-100
 					end
 				end
-				print(string.format("iKS: Difference in health %.2f%% and in damage %.2f%%", getDifference(health, health2), getDifference(damage, damage2)))
+				print(_sformat("iKS: Difference in health %.2f%% and in damage %.2f%%", getDifference(health, health2), getDifference(damage, damage2)))
 			end
 		else
 			iKS:help()
