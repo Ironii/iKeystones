@@ -261,7 +261,7 @@ function iKS:createPlayer()
 	if player and not iKeystonesDB[player] then
 		local isleProgress, isleMax = select(4, GetQuestObjectiveInfo(iKS.IsleQuests[playerFaction], 1, false))
 		local isleDone = IsQuestFlaggedCompleted(iKS.IsleQuests[playerFaction])
-		if UnitLevel('player') >= 120 and not iKeystonesConfig.ignoreList[player] then
+		if UnitLevel('player') >= 50 and not iKeystonesConfig.ignoreList[player] then
 			iKeystonesDB[player] = {
 				name = UnitName('player'),
 				server = GetRealmName(),
@@ -285,7 +285,7 @@ function iKS:createPlayer()
 		else
 			return false
 		end
-	elseif player and UnitLevel('player') < 120 and iKeystonesDB[player] then
+	elseif player and UnitLevel('player') < 50 and iKeystonesDB[player] then
 		iKeystonesDB[player] = nil
 		return false
 	elseif player and iKeystonesDB[player] then
@@ -345,6 +345,7 @@ function iKS:scanCharacterMaps()
 		iKeystonesDB[player].maxCompleted = maxCompleted
 	end
 end
+
 function iKS:scanInventory(requestingSlots, requestingItemLink)
 	if not iKS:createPlayer() then return end
 	local _map = C_MythicPlus.GetOwnedKeystoneChallengeMapID()
@@ -522,7 +523,7 @@ function addon:PLAYER_LOGIN()
 		end
 	end)
 end
-local version = 1.912
+local version = 1.913
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
