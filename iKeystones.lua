@@ -206,6 +206,9 @@ function iKS:getAP(level, map, current, onlyNumber, forSummary)
 end
 do
 	local trScaling = {
+		[-1] = function()
+			return 0
+		end,
 		[3] = function(level) -- Season 3
 			if level <= 10 then
 				return 17e3
@@ -523,7 +526,7 @@ function addon:PLAYER_LOGIN()
 		end
 	end)
 end
-local version = 1.913
+local version = 1.914
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -760,10 +763,11 @@ local function chatFiltering(self, event, msg, ...)
 			local preLink = msg:sub(1, linkStart-12)
 			local linkStuff = msg:sub(math.max(linkStart-11, 0))
 			local tempTable = {strsplit(':', linkStuff)}
-			tempTable[1] = iKS:getItemColor(tonumber(tempTable[16])) .. '|Hitem'
+			tempTable[1] = iKS:getItemColor(tonumber(tempTable[21])) .. '|Hitem'
+
 			for k,v in pairs(tempTable) do
 				if v and v:match('%[.-%]') then
-					tempTable[k] = _sgsub(tempTable[k], '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[15])), tonumber(tempTable[16]), tonumber(tempTable[16])), 1)
+					tempTable[k] = _sgsub(tempTable[k], '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[19])), tonumber(tempTable[21]), tonumber(tempTable[21])), 1)
 					break
 				end
 			end
