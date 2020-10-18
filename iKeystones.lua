@@ -526,7 +526,7 @@ function addon:PLAYER_LOGIN()
 		end
 	end)
 end
-local version = 1.914
+local version = 1.915
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -558,11 +558,21 @@ function addon:ADDON_LOADED(addonName)
 		if iKeystonesConfig.ak then -- remove old ak stuff from wtf file
 			iKeystonesConfig.ak = nil
 		end
-		LoadAddOn("Blizzard_ChallengesUI")
+		--LoadAddOn("Blizzard_ChallengesUI")
 	elseif addonName == 'Blizzard_ChallengesUI' then
 		addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	end
 end
+
+--Fix for Blizzard_ChallengesUI gving errors from 9.0.1 when loaded during loading screens
+addon:RegisterEvent("LOADING_SCREEN_DISABLED")
+function addon:LOADING_SCREEN_DISABLED()
+	if not IsAddOnLoaded("Blizzard_ChallengesUI") then
+		LoadAddOn("Blizzard_ChallengesUI")
+	end
+	addon:UnregisterEvent("LOADING_SCREEN_DISABLED")
+end
+
 local delayLoadingTimer
 function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	local temp = C_MythicPlus.GetCurrentAffixes()
