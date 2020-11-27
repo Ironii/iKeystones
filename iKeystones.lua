@@ -90,6 +90,8 @@ local sortedAffixes = {
 	[8] = 2, --Sanguine
 	[5] = 2, --Teeming
 	[11] = 2, --Bursting
+	[122] = 2, -- Inspiring
+	[123] = 2, -- Spiteful
 
 	[4] = 3, --Necrotic
 	[2] = 3, --Skittish
@@ -97,43 +99,49 @@ local sortedAffixes = {
 	[13] = 3, --Explosive
 	[14] = 3, --Quaking
 	[12] = 3, --Grievous
+	[124] = 3, -- Storming
 
 	--[15] = ?, --Relentless
 	[16] = 4, --Infested, S1
 	[117] = 4, --Reaping, S2
 	[119] = 4, -- Beguiling, S3
 	[120] = 4, -- Awekened, S4
+	[121] = 4, -- Prideful, S5
 }
-
+do
+	local affixIDS = {
+		FORTIFIED = 10,
+		TYRANNICAL = 9,
+		BOLSTERING = 7,
+		RAGING = 6,
+		SANGUINE = 8,
+		TEEMING = 5,
+		BURSTING = 11,
+		INSPIRING = 122,
+		SPITEFUL = 123,
+		NECROTIC = 4,
+		SKITTISH = 2,
+		VOLCANIC = 3,
+		EXPLOSIVE = 13,
+		QUAKING = 14,
+		GRIEVOUS = 12,
+		STORMING = 123,
+	}
 iKS.affixCycles = {
-	--[[
-	{9,6,3}, -- Tyrannical, Raging, Volcanic
-	{10,5,13}, -- Fortified, Teeming, Explosive
-	{9,7,12}, -- Tyrannical, Bolstering, Grievous
-	{10,8,4}, -- Fortified, Sanguine, Necrotic
-	{9,11,2}, -- Tyrannical, Bursting, Skittish
-	{10,5,14}, -- Fortified, Teeming, Quaking
-	{9,6,4}, -- Tyrannical, Raging, Necrotic
-	{10,7,2}, -- Fortified, Bolstering, Skittish
-	{9,5,3}, -- Tyrannical, Teeming, Volcanic
-	{10,8,12}, -- Fortified Sanguine, Grievous
-	{9,7,13}, -- Tyrannical, Bolstering, Explosive <<<<<<<<<<<<<<<<<
-	{10,3,14}, -- Fortified, Bursting, Volcanic <<<<<<<<<<<<<<<<<
-	--]]
-	-- S3
-	{10,7,12}, -- Fortified, Bolstering, Grievous
-	{9,6,13},-- Tyrannical, Raging, Explosive
-	{10,8,12},	-- Fortified, Sanguine, Grievous
-	{9,5,3}, -- Tyrannical, Teeming, Volcanic
-	{10,7,2}, -- Fortified, Bolstering, Skittish
-	{9,11,4}, -- Tyrannical, Bursting, Necrotic
-	{10,8,14}, -- Fortified, Sanguine, Quaking
-	{9,7,13}, -- Tyrannical, Bolstering, Explosive
-	{10,11,3}, -- Fortified, Bursting, Volcanic
-	{9,6,4}, -- Tyrannical, Raging, Necrotic
-	{10,5,14}, -- Fortified, Teeming, Quaking
-	{9,11,2}, -- Tyrannical, Bursting, Skittish
+	{affixIDS.FORTIFIED, affixIDS.BURSTRING, affixIDS.STORMING},
+	{affixIDS.TYRANNICAL, affixIDS.SANGUINE, affixIDS.GRIEVOUS},
+	{affixIDS.FORTIFIED, affixIDS.INSPIRING, affixIDS.EXPLOSIVE},
+	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.QUAKING},
+	{affixIDS.FORTIFIED, affixIDS.BURSTING, affixIDS.VOLCANIC},
+	{affixIDS.TYRANNICAL, affixIDS.SPITEFUL, affixIDS.GRIEVOUS},
+	{affixIDS.FORTIFIED, affixIDS.BOLSTERING, affixIDS.STORMING},
+	{affixIDS.TYRANNICAL, affixIDS.INSPIRING, affixIDS.NECROTIC},
+	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.QUAKING},
+	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.EXPLOSIVE},
+	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.VOLCANIC},
+	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.NECROTIC}
 }
+end
 --C_MythicPlus.GetLastWeeklyBestInformation();
 --[[
 	2 = 1000
@@ -773,11 +781,10 @@ local function chatFiltering(self, event, msg, ...)
 			local preLink = msg:sub(1, linkStart-12)
 			local linkStuff = msg:sub(math.max(linkStart-11, 0))
 			local tempTable = {strsplit(':', linkStuff)}
-			tempTable[1] = iKS:getItemColor(tonumber(tempTable[21])) .. '|Hitem'
-
+			tempTable[1] = iKS:getItemColor(tonumber(tempTable[19])) .. '|Hitem'
 			for k,v in pairs(tempTable) do
 				if v and v:match('%[.-%]') then
-					tempTable[k] = _sgsub(tempTable[k], '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[19])), tonumber(tempTable[21]), tonumber(tempTable[21])), 1)
+					tempTable[k] = _sgsub(tempTable[k], '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[17])), tonumber(tempTable[19]), tonumber(tempTable[19])), 1)
 					break
 				end
 			end
