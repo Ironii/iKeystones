@@ -76,7 +76,18 @@ iKS.keystonesToMapIDs = {
 	[353] = 1822, -- Siege of Boralus
 	[369] = 2097, -- Operation Mechagon - Junkyard
 	[370] = 2097, -- Operation Mechagon - Workshop
+
+
+	[375] = 2290, -- Mists of Tirna Scithe
+	[376] = 2286, -- The Necrotic Wake
+	[377] = 2291, -- De Other Side
+	[378] = 2287, -- Halls of Atonement
+	[379] = 2289, -- Plaguefall
+	[380] = 2284, -- Sanguine Depths
+	[381] = 2285, -- Spires of Ascension
+	[382] = 2293, -- Theater of Pain
 }
+
 iKS.IsleQuests = {
 	['Horde'] = 53435,
 	['Alliance'] = 53436,
@@ -664,13 +675,42 @@ local function chatFiltering(self, event, msg, ...)
 	if event == 'CHAT_MSG_LOOT' then
 		local linkStart = msg:find('Hitem:180653')
 		if linkStart then
+			print(msg:gsub("|", "||")) -- DEBUG
 			local preLink = msg:sub(1, linkStart-12)
 			local linkStuff = msg:sub(math.max(linkStart-11, 0))
 			local tempTable = {strsplit(':', linkStuff)}
-			tempTable[1] = iKS:getItemColor(tonumber(tempTable[19])) .. '|Hitem'
+			--[[
+				1 |cffa335ee|Hitem:
+				2 180653:
+				3 :
+				4 :
+				5 :
+				6 :
+				7 :
+				8 :
+				9 :
+				10 60:
+				11 66:
+				12 :
+				13 :
+				14 :
+				15 4:
+				16 28:
+				17 1279:
+				18 17:
+				19 382:
+				20 18:
+				21 2:
+				22 19:
+				23 10:
+				24 :
+				25 :
+				27 |h[Mythic Keystone]|h|r. 5 --]]
+				 --/script SendChatMessage("\124cffa335ee\124Hitem:180653::::::::60:66::::4:28:1279:17:382:18:4:19:10:::\124h[Mythic Keystone]\124h\124r")
+			tempTable[1] = iKS:getItemColor(tonumber(tempTable[21])) .. '|Hitem'
 			for k,v in pairs(tempTable) do
 				if v and v:match('%[.-%]') then
-					tempTable[k] = _sgsub(tempTable[k], '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[17])), tonumber(tempTable[19]), tonumber(tempTable[19])), 1)
+					tempTable[k] = _sgsub(tempTable[k], '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[19])), tonumber(tempTable[21]), tonumber(tempTable[21])), 1)
 					break
 				end
 			end
@@ -690,7 +730,6 @@ local function chatFiltering(self, event, msg, ...)
 			local linkStuff = msg:sub(math.max(linkStart-11, 0))
 			local tempTable = {strsplit(':', linkStuff)}
 			tempTable[1] = iKS:getItemColor(tonumber(tempTable[3]), tonumber(tempTable[4])) .. '|Hkeystone'
-
 			local fullString = table.concat(tempTable, ':')
 			fullString = _sgsub(fullString, '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[3])), tonumber(tempTable[4])), 1)
 			return false, preLink..fullString, ...
