@@ -1,6 +1,10 @@
 --upvalues
 local _sformat, GetQuestObjectiveInfo, IsQuestFlaggedCompleted, _sgsub, _sgmatch, _smatch, _slower, SendChatMessage, _SendAddonMessage = string.format, GetQuestObjectiveInfo, C_QuestLog.IsQuestFlaggedCompleted, string.gsub, string.gmatch, string.match, string.lower, SendChatMessage, C_ChatInfo.SendAddonMessage
-
+local vaultThresholds = {
+	{1,4,10},
+	{1250,2500,6250},
+	{3,7,10},
+}
 local addon = CreateFrame('Frame');
 addon:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
@@ -13,10 +17,9 @@ addon:RegisterEvent('MYTHIC_PLUS_CURRENT_AFFIX_UPDATE')
 addon:RegisterEvent('MYTHIC_PLUS_NEW_WEEKLY_RECORD')
 addon:RegisterEvent('ITEM_PUSH')
 addon:RegisterEvent('BAG_UPDATE')
---addon:RegisterEvent('CRITERIA_UPDATE')
---addon:RegisterEvent('QUEST_LOG_UPDATE')
-addon:RegisterEvent('ENCOUNTER_LOOT_RECEIVED')
+addon:RegisterEvent('QUEST_LOG_UPDATE')
 addon:RegisterEvent('CHAT_MSG_ADDON')
+addon:RegisterEvent("WEEKLY_REWARDS_UPDATE")
 C_ChatInfo.RegisterAddonMessagePrefix('iKeystones')
 --C_ChatInfo.RegisterAddonMessagePrefix('AstralKeys') -- AstralKeys guild support
 addon:RegisterEvent('CHAT_MSG_PARTY')
@@ -30,25 +33,7 @@ local player = UnitGUID('player')
 local unitName = UnitName('player')
 local playerFaction = UnitFactionGroup('player')
 local maxPlayerLevel = GetMaxLevelForLatestExpansion()
---[[
-iKS.apFromDungeons = {
-	-- Fast
-	[244] = 420, -- Atal'Dazar
-	[245] = 420, -- Freehold
-	[251] = 420, -- The Underrot
 
-	-- Medium
-	[246] = 540, -- Tol Dagor
-	[247] = 540, -- The Motherlode
-	[248] = 540, -- Waycrest Manor
-	[250] = 540, -- Temple of Sethraliss
-	[353] = 540, -- Siege of Boralus
-
-	--Slow
-	[249] = 660, -- King's Rest
-	[252] = 660, -- Shrine of the Storm
-}
---]]
 iKS.keystonesToMapIDs = {
 	[197] = 1456, -- Eye of Azhara
 	[198] = 1466, -- Darkhearth Thicket
@@ -140,18 +125,19 @@ do
 		STORMING = 123,
 	}
 iKS.affixCycles = {
-	{affixIDS.FORTIFIED, affixIDS.BURSTRING, affixIDS.STORMING},
-	{affixIDS.TYRANNICAL, affixIDS.SANGUINE, affixIDS.GRIEVOUS},
-	{affixIDS.FORTIFIED, affixIDS.INSPIRING, affixIDS.EXPLOSIVE},
-	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.QUAKING},
-	{affixIDS.FORTIFIED, affixIDS.BURSTING, affixIDS.VOLCANIC},
-	{affixIDS.TYRANNICAL, affixIDS.SPITEFUL, affixIDS.GRIEVOUS},
-	{affixIDS.FORTIFIED, affixIDS.BOLSTERING, affixIDS.STORMING},
-	{affixIDS.TYRANNICAL, affixIDS.INSPIRING, affixIDS.NECROTIC},
-	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.QUAKING},
-	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.EXPLOSIVE},
-	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.VOLCANIC},
-	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.NECROTIC}
+	{affixIDS.FORTIFIED, affixIDS.BURSTRING, affixIDS.VOLCANIC}, -- Confirmed
+	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.STORMING}, -- Confirmed
+	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.GRIEVOUS}, -- Confirmed
+	{affixIDS.TYRANNICAL, affixIDS.BURSTING, affixIDS.VOLCANIC}, -- Guess
+	{affixIDS.FORTIFIED, affixIDS.RAGING, affixIDS.QUAKING}, -- Guess
+	{affixIDS.TYRANNICAL, affixIDS.INSPIRING, affixIDS.EXPLOSIVE}, -- Guess
+	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.GRIEVOUS}, -- Guess
+	{affixIDS.TYRANNICAL, affixIDS.BURSTRING, affixIDS.STORMING}, -- Guess
+	{affixIDS.FORTIFIED, affixIDS.BOLSTERING, affixIDS.NECROTIC}, -- Guess
+	{affixIDS.TYRANNICAL, affixIDS.SPITEFUL, affixIDS.VOLCANIC}, -- Guess
+	{affixIDS.FORTIFIED, affixIDS.RAGING, affixIDS.EXPLOSIVE}, -- Guess
+	{affixIDS.TYRANNICAL, affixIDS.SANGUINE, affixIDS.QUAKING}, -- Guess
+	{affixIDS.FORTIFIED, affixIDS.INSPIRING, affixIDS.NECROTIC}, -- Guess
 }
 end
 --C_MythicPlus.GetLastWeeklyBestInformation();
@@ -190,24 +176,34 @@ local function spairs(t, order)
 end
 function iKS:weeklyReset()
 	for guid,data in pairs(iKeystonesDB) do
-		if iKeystonesDB[guid].maxCompleted and iKeystonesDB[guid].maxCompleted > 0 then
-			iKeystonesDB[guid].canLoot = true
-		end
-		if iKeystonesDB[guid].isle and iKeystonesDB[guid].isle.done then
-			iKeystonesDB[guid].isle = {
-				progress = 0,
-				done = false,
-			}
-		end
-		if iKeystonesDB[guid].pvp.done then
-			iKeystonesDB[guid].pvp.canLoot = true
-			iKeystonesDB[guid].pvp.done = false
+		for k,t in pairs(data.activities) do
+			for id, v in pairs(t) do
+				if v.progress >= vaultThresholds[k][id] then
+					iKeystonesDB[guid].canLoot = true
+					iKeystonesDB[guid].activities = {
+						[1] = { -- m+
+							{progress = 0, level = 0, id = 0},
+							{progress = 0, level = 0, id = 0},
+							{progress = 0, level = 0, id = 0},
+						},
+						[2] = { -- pvp
+							{progress = 0, level = 0, id = 0},
+							{progress = 0, level = 0, id = 0},
+							{progress = 0, level = 0, id = 0},
+						},
+						[3] = { -- raid
+							{progress = 0, level = 0, id = 0},
+							{progress = 0, level = 0, id = 0},
+							{progress = 0, level = 0, id = 0},
+						},
+					}
+				end
+			end
 		end
 		iKeystonesDB[guid].key = {}
-		iKeystonesDB[guid].maxCompleted = 0
 	end
-
 	iKS:scanInventory()
+	iKS:scanCharacterMaps()
 end
 function iKS:createPlayer()
 	if player and not iKeystonesDB[player] then
@@ -216,10 +212,27 @@ function iKS:createPlayer()
 				name = UnitName('player'),
 				server = GetRealmName(),
 				class = select(2, UnitClass('player')),
-				maxCompleted = 0,
 				key = {},
-				canLoot = false,
+				canLoot = C_WeeklyRewards.HasAvailableRewards(),
 				faction = UnitFactionGroup('player'),
+				activities = {
+					[1] = { -- m+
+						{progress = 0, level = 0, id = 0},
+						{progress = 0, level = 0, id = 0},
+						{progress = 0, level = 0, id = 0},
+					},
+					[2] = { -- pvp
+						{progress = 0, level = 0, id = 0},
+						{progress = 0, level = 0, id = 0},
+						{progress = 0, level = 0, id = 0},
+					},
+					[3] = { -- raid
+						{progress = 0, level = 0, id = 0},
+						{progress = 0, level = 0, id = 0},
+						{progress = 0, level = 0, id = 0},
+					},
+				},
+				runHistory = {},
 			}
 			return true
 		else
@@ -258,6 +271,7 @@ local function IsValidDungeon(dungeonID)
 end
 function iKS:scanCharacterMaps()
 	if not iKS:createPlayer() then return end
+	--[[
 	local maps = C_ChallengeMode.GetMapTable()
 	local maxCompleted = 0
 	for _, mapID in pairs(maps) do
@@ -273,9 +287,27 @@ function iKS:scanCharacterMaps()
 			end
 		end
 	end
+	
 	if iKeystonesDB[player].maxCompleted and iKeystonesDB[player].maxCompleted < maxCompleted then
 		iKeystonesDB[player].maxCompleted = maxCompleted
 	end
+	--]]
+	local t = C_WeeklyRewards.GetActivities()
+	if not t then print("Error: Activities not found") return end
+	-- type: 1 m+, 2 pvp, 3 raid
+	for k,v in pairs(t) do
+			if v.type == 1 or v.type == 2 or v.type == 3 then
+				iKeystonesDB[player].activities[v.type][v.index] = {progress = v.progress, level = v.level, id = v.id}
+			end
+	end
+	iKeystonesDB[player].runHistory = {}
+	local history = C_MythicPlus.GetRunHistory(false, true);
+	for k,v in pairs(history) do
+		if v.thisWeek then -- is this necessery?
+			iKeystonesDB[player].runHistory[v.level] = iKeystonesDB[player].runHistory[v.level] and iKeystonesDB[player].runHistory[v.level] + 1 or 1
+		end
+	end
+	iKeystonesDB[player].canLoot = C_WeeklyRewards.HasAvailableRewards()
 end
 
 function iKS:scanInventory(requestingSlots, requestingItemLink)
@@ -344,11 +376,7 @@ function iKS:printKeystones()
 		if data.server == GetRealmName() then
 			str = _sformat('|c%s%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, itemLink, (data.maxCompleted >= iKS.currentMax and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
 		else
-			str = _sformat('|c%s%s-%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, data.server,itemLink,(data.maxCompleted >= iKS.currentMax and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
-		end
-		if data.maxCompleted > 0 then
-			local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(data.maxCompleted)
-			str = str.. _sformat('|r (%d) AP: %s', ilvl, iKS:getAP(data.maxCompleted))
+			str = _sformat('|c%s%s-%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, data.server,itemLink,(data.activities[1][1].level >= iKS.currentMax and '|cff00ff00' .. data.activities[1][1].level) or data.activities[1][1].level)
 		end
 		print(str)
 	end
@@ -374,7 +402,7 @@ function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel, reques
 			end
 			if data.faction == faction and (mapID == data.key.map or not mapID) then
 				--if not level or (level and data.key.level and data.key.level >= level) then
-				if not requestingWeekly or (requestingWeekly and data.maxCompleted < iKS.currentMax) then
+				if not requestingWeekly or (requestingWeekly and data.activities[1][1].level < iKS.currentMax) then
 					if iKS:shouldReportKey(data.key.level, exactLevel, minLevel, maxLevel) then
 						local itemLink = ''
 						if data.key.map then
@@ -455,12 +483,12 @@ function addon:PLAYER_LOGIN()
 		end
 	end)
 end
-local version = 1.921
+local version = 1.930
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
 		iKeystonesConfig = iKeystonesConfig or {}
-		if iKeystonesConfig.version < 1.921 then -- reset data for new expansion (db doesn't have level data)
+		if iKeystonesConfig.version < 1.930 then -- reset data for new expansion (db doesn't have level data)
 			iKeystonesDB = nil
 			iKeystonesDB = {}
 		end
@@ -555,9 +583,12 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 end
 function addon:MYTHIC_PLUS_NEW_WEEKLY_RECORD(mapChallengeModeID, completionMilliseconds, level)
 	if not iKS:createPlayer() or not level or not IsValidDungeon(mapChallengeModeID) then return end
+	iKS:scanCharacterMaps()
+	--[[
 	if level > iKeystonesDB[player].maxCompleted then
 		iKeystonesDB[player].maxCompleted = level
 	end
+	--]]
 end
 function addon:BAG_UPDATE()
 	iKS:scanInventory()
@@ -570,35 +601,14 @@ end
 function addon:CHALLENGE_MODE_MAPS_UPDATE()
 	iKS:scanCharacterMaps()
 end
+function addon:WEEKLY_REWARDS_UPDATE()
+	iKS:scanCharacterMaps()
+end
 function addon:QUEST_LOG_UPDATE()
 	if not iKeystonesDB[player] then return end
--- /dump GetQuestObjectiveInfo(53435, 1, false)
---
--- 57065 (pvp chest)
--- 55432 conquest reward
-	--conquest quest
-	do
-		--local rewardAchieved, lastWeekRewardAchieved, lastWeekRewardClaimed, pvpTierMaxFromWins = C_PvP.GetWeeklyChestInfo();
-		--iKeystonesDB[player].pvp.done = rewardAchieved
-		--iKeystonesDB[player].pvp.progress = (conqProgress and conqMax) and conqProgress/conqMax or 0
-		--iKeystonesDB[player].pvp.lootTier = pvpTierMaxFromWins
-		--if lastWeekRewardClaimed then
-			--iKeystonesDB[player].pvp.canLoot = false
-		--end
-	end
-	if IsQuestFlaggedCompleted(44554) or IsQuestFlaggedCompleted(51363) then -- added back mid patch? O.o, use it to make weekly chest registering faster
+	if IsQuestFlaggedCompleted(62079) then -- added back mid patch? O.o, use it to make weekly chest registering faster
 		iKeystonesDB[player].canLoot = false
 	end
-end
-function addon:CRITERIA_UPDATE()
-	addon:QUEST_LOG_UPDATE()
-end
-function addon:ENCOUNTER_LOOT_RECEIVED(_, itemid)
-	if itemid ~= 180653 then return end
-	C_Timer.After(5, function()
-		iKeystonesDB[player].canLoot = C_MythicPlus.IsWeeklyRewardAvailable()
-	end)
-
 end
 local function ChatHandling(msg, channel)
 	if not msg then return end -- not sure if this can even happen, maybe?
@@ -629,6 +639,12 @@ local function ChatHandling(msg, channel)
 				iKS:PasteKeysToChat(true,channel)
 			end
 		end
+	elseif msg == ".covenant" or msg == "!covenant" then
+		local c = C_Covenants.GetActiveCovenantID()
+		if not c then return end
+		local covenantData = C_Covenants.GetCovenantData(c)
+		if not covenantData then return end
+		SendChatMessage(covenantData.name, channel)
 	end
 end
 function addon:CHAT_MSG_GUILD(msg)
@@ -675,7 +691,7 @@ local function chatFiltering(self, event, msg, ...)
 	if event == 'CHAT_MSG_LOOT' then
 		local linkStart = msg:find('Hitem:180653')
 		if linkStart then
-			print(msg:gsub("|", "||")) -- DEBUG
+			--print(msg:gsub("|", "||")) -- DEBUG
 			local preLink = msg:sub(1, linkStart-12)
 			local linkStuff = msg:sub(math.max(linkStart-11, 0))
 			local tempTable = {strsplit(':', linkStuff)}
@@ -707,10 +723,97 @@ local function chatFiltering(self, event, msg, ...)
 				25 :
 				27 |h[Mythic Keystone]|h|r. 5 --]]
 				 --/script SendChatMessage("\124cffa335ee\124Hitem:180653::::::::60:66::::4:28:1279:17:382:18:4:19:10:::\124h[Mythic Keystone]\124h\124r")
+				 --                           strsplit("|cffa335ee \124Hitem:180653::::::::60:581::::5:17:380:18:9:19:9:20:7:21:124:::\124h[Mythic Keystone]|h|r.") 5 first box
+				 --[[
+					 
+					 local str = {strsplit(":","||cffa335ee|||Hitem:180653::::::::60:581::::5:17:380:18:9:19:9:20:7:21:124:::||h[Mythic Keystone]||h||r. 5")};for k,v in pairs(str) do print(k,v) end
+					 --dh first week 9
+					 [10:50:20] 1 ||cffa335ee|||Hitem
+					[10:50:20] 2 180653
+					[10:50:20] 3 
+					[10:50:20] 4 
+					[10:50:20] 5 
+					[10:50:20] 6 
+					[10:50:20] 7 
+					[10:50:20] 8 
+					[10:50:20] 9 
+					[10:50:20] 10 60
+					[10:50:20] 11 581
+					[10:50:20] 12 
+					[10:50:20] 13 
+					[10:50:20] 14 
+					[10:50:20] 15 5
+					[10:50:20] 16 17
+					[10:50:20] 17 380
+					[10:50:20] 18 18
+					[10:50:20] 19 9
+					[10:50:20] 20 19
+					[10:50:20] 21 9
+					[10:50:20] 22 20
+					[10:50:20] 23 7
+					[10:50:20] 24 21
+					[10:50:20] 25 124
+
+					-- paladin first week 2
+					local str = {strsplit(":","|cffa335ee|Hitem:180653::::::::60:66::::3:17:381:18:2:19:9:::|h[Mythic Keystone]|h|r. 5")};for k,v in pairs(str) do print(k,v) end
+					[10:56:34] 1 |cffa335ee|Hitem
+					[10:56:34] 2 180653
+					[10:56:34] 3 
+					[10:56:34] 4 
+					[10:56:34] 5 
+					[10:56:34] 6 
+					[10:56:34] 7 
+					[10:56:34] 8 
+					[10:56:34] 9 
+					[10:56:34] 10 60
+					[10:56:34] 11 66
+					[10:56:34] 12 
+					[10:56:34] 13 
+					[10:56:34] 14 
+					[10:56:34] 15 3
+					[10:56:34] 16 17
+					[10:56:34] 17 381
+					[10:56:34] 18 18
+					[10:56:34] 19 2
+					[10:56:34] 20 19
+					[10:56:34] 21 9
+					[10:56:34] 22 
+					[10:56:34] 23 
+					[10:56:34] 24 |h[Mythic Keystone]|h|r. 5
+					dk first week 13
+					local str = {strsplit(":","|cffa335ee|Hitem:180653::::::::60:250::::6:17:381:18:13:19:9:20:7:21:124:22:121:::|h[Mythic Keystone]|h|r. 5")};for k,v in pairs(str) do print(k,v) end
+					|cffa335ee|Hitem:180653::::::::60:250::::6:17:381:18:13:19:9:20:7:21:124:22:121:::|h[Mythic Keystone]|h|r. 5
+					[11:18:31] 9 
+					[11:18:31] 10 60
+					[11:18:31] 11 250
+					[11:18:31] 12 
+					[11:18:31] 13 
+					[11:18:31] 14 
+					[11:18:31] 15 6
+					[11:18:31] 16 17
+					[11:18:31] 17 381
+					[11:18:31] 18 18
+					[11:18:31] 19 13
+					[11:18:31] 20 19
+					[11:18:31] 21 9
+					[11:18:31] 22 20
+					[11:18:31] 23 7
+					[11:18:31] 24 21
+					[11:18:31] 25 124
+					[11:18:31] 26 22
+					[11:18:31] 27 121
+					[11:18:31] 28 
+					[11:18:31] 29 
+					[11:18:31] 30 |h[Mythic Keystone]|h|r. 5
+				 ]]
 			tempTable[1] = iKS:getItemColor(tonumber(tempTable[21])) .. '|Hitem'
 			for k,v in pairs(tempTable) do
 				if v and v:match('%[.-%]') then
-					tempTable[k] = _sgsub(tempTable[k], '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[19])), tonumber(tempTable[21]), tonumber(tempTable[21])), 1)
+					if iKS:getZoneInfo(tonumber(tempTable[19])) then -- sometimes its 19 and somtimes 17? something do with key level most likely
+						tempTable[k] = _sgsub(tempTable[k], '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[19])), tonumber(tempTable[21]), tonumber(tempTable[21])), 1)
+					else
+						tempTable[k] = _sgsub(tempTable[k], '%[.-%]', _sformat('[%s (%s)]',iKS:getZoneInfo(tonumber(tempTable[17])), tonumber(tempTable[19]), tonumber(tempTable[19])), 1)
+					end
 					break
 				end
 			end
@@ -796,44 +899,44 @@ function iKS:createNewLine()
 	f.key.text:SetText(#iKS.frames == 1 and 'Current key' or '')
 	f.key.text:Show()
 
-	f.max = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
-	f.max:SetSize(50,20)
-	f.max:SetBackdrop(iKS.bd)
-	f.max:SetBackdropColor(.1,.1,.1,.9)
-	f.max:SetBackdropBorderColor(0,0,0,1)
-	f.max:SetPoint('TOPLEFT', f.key, 'TOPRIGHT', -1,0)
+	f.dungeon = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
+	f.dungeon:SetSize(50,20)
+	f.dungeon:SetBackdrop(iKS.bd)
+	f.dungeon:SetBackdropColor(.1,.1,.1,.9)
+	f.dungeon:SetBackdropBorderColor(0,0,0,1)
+	f.dungeon:SetPoint('TOPLEFT', f.key, 'TOPRIGHT', -1,0)
 
-	f.max.text = f.max:CreateFontString()
-	f.max.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
-	f.max.text:SetPoint('CENTER', f.max, 'CENTER', 0,0)
-	f.max.text:SetText(#iKS.frames == 1 and 'Max' or '')
-	f.max.text:Show()
+	f.dungeon.text = f.dungeon:CreateFontString()
+	f.dungeon.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+	f.dungeon.text:SetPoint('CENTER', f.dungeon, 'CENTER', 0,0)
+	f.dungeon.text:SetText(#iKS.frames == 1 and 'Mythic+' or '')
+	f.dungeon.text:Show()
 
-	f.ilvl = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
-	f.ilvl:SetSize(50,20)
-	f.ilvl:SetBackdrop(iKS.bd)
-	f.ilvl:SetBackdropColor(.1,.1,.1,.9)
-	f.ilvl:SetBackdropBorderColor(0,0,0,1)
-	f.ilvl:SetPoint('TOPLEFT', f.max, 'TOPRIGHT', -1,0)
+	f.raid = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
+	f.raid:SetSize(50,20)
+	f.raid:SetBackdrop(iKS.bd)
+	f.raid:SetBackdropColor(.1,.1,.1,.9)
+	f.raid:SetBackdropBorderColor(0,0,0,1)
+	f.raid:SetPoint('TOPLEFT', f.dungeon, 'TOPRIGHT', -1,0)
 
-	f.ilvl.text = f.ilvl:CreateFontString()
-	f.ilvl.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
-	f.ilvl.text:SetPoint('CENTER', f.ilvl, 'CENTER', 0,0)
-	f.ilvl.text:SetText(#iKS.frames == 1 and 'iLvL' or '')
-	f.ilvl.text:Show()
-	--[[
+	f.raid.text = f.raid:CreateFontString()
+	f.raid.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+	f.raid.text:SetPoint('CENTER', f.raid, 'CENTER', 0,0)
+	f.raid.text:SetText(#iKS.frames == 1 and 'Raid' or '')
+	f.raid.text:Show()
+
 	f.pvp = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.pvp:SetSize(50,20)
 	f.pvp:SetBackdrop(iKS.bd)
 	f.pvp:SetBackdropColor(.1,.1,.1,.9)
 	f.pvp:SetBackdropBorderColor(0,0,0,1)
-	f.pvp:SetPoint('TOPLEFT', f.isle, 'TOPRIGHT', -1,0)
+	f.pvp:SetPoint('TOPLEFT', f.raid, 'TOPRIGHT', -1,0)
 
 	f.pvp.text = f.pvp:CreateFontString()
 	f.pvp.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
 	f.pvp.text:SetPoint('CENTER', f.pvp, 'CENTER', 0,0)
 	f.pvp.text:SetText(#iKS.frames == 1 and 'PvP' or '')
-	f.pvp.text:Show() --]]
+	f.pvp.text:Show()
 end
 
 local function reColor(f, faction)
@@ -845,9 +948,9 @@ local function reColor(f, faction)
 	end
 	f.name:SetBackdropColor(r,g,b,.9)
 	f.key:SetBackdropColor(r,g,b,.9)
-	f.max:SetBackdropColor(r,g,b,.9)
-	f.ilvl:SetBackdropColor(r,g,b,.9)
-	--f.pvp:SetBackdropColor(r,g,b,.9)
+	f.dungeon:SetBackdropColor(r,g,b,.9)
+	f.raid:SetBackdropColor(r,g,b,.9)
+	f.pvp:SetBackdropColor(r,g,b,.9)
 end
 local treasures = {
 	pve = '|TInterface\\Icons\\inv_misc_treasurechest02b:16|t',
@@ -856,10 +959,93 @@ local treasures = {
 		Horde = "|TInterface\\Icons\\garrison_goldchesthorde:16|t",
 	}
 }
+local tempILvLstuff = {
+	{ -- M+
+		0,
+		200, -- 2
+		203, -- 3
+		207, -- 4
+		210, -- 5
+		210, -- 6
+		213, -- 7
+		216, -- 8
+		216, -- 9
+		220, -- 10
+		220, -- 11
+		223, -- 12
+		223, -- 13
+		226, -- 14
+		226, -- 15
+	},
+	{ -- PvP
+		200, -- Unranked
+		207, -- 1400-1599
+		213, -- 1600-1799
+		220, -- 1800-2099
+		226, -- 2100+ 
+	},
+	{ -- Raid
+		[14] = 200,
+		[15] = 213,
+		[16] = 226,
+	},
+}
+local function getItemLevelForWeekly(id, vaultType)
+	if id <= 0 then
+		return 0, 1
+	end
+	if vaultType == 1 and id >= 15 then -- m+
+		id = 15
+	elseif vaultType == 2 then
+		if not tempILvLstuff[vaultType][id] then return "??", 226 end
+		return tempILvLstuff[vaultType][id], 226
+	end
+	return tempILvLstuff[vaultType][id], 226			
+	
+	--[[ this isn't reliable right now, use hard coded shit
+	if vaultType == 1 then
+		return C_MythicPlus.GetRewardLevelFromKeystoneLevel(id), 226
+	elseif vaultType == 2 then -- pvp this isn't fully working
+		local itemLink, upgraded = C_WeeklyRewards.GetExampleRewardItemHyperlinks(id)
+		if not itemLink then return 0,0 end
+		local ilvl = GetDetailedItemLevelInfo(itemLink)
+		local upgradedilvl = GetDetailedItemLevelInfo(upgraded)
+		return ilvl or 0, upgradedilvl or 0
+	elseif vaultType == 3 then -- raid
+		return id == 14 and 200 or id == 15 and 213 or 226, 226
+	end
+	]]
+end
+local function getStringForVault(data, vaultType)
+	local str
+	if vaultType == 1 or vaultType == 2 or vaultType == 3 then
+		local t = {}
+		for k,v in ipairs(data.activities[vaultType]) do
+			local str
+			if v.progress >= vaultThresholds[vaultType][k] then -- completed
+				local ilvl, upgraded = getItemLevelForWeekly(v.level, vaultType)
+				if ilvl == upgraded then -- max reward
+					str = _sformat("|cff00ff00%s|r", ilvl)
+				else
+					str = ilvl
+				end
+			else
+				str = v.progress == 0 and "-" or _sformat("%.0f%%", (v.progress/vaultThresholds[vaultType][k])*100)
+			end
+			t[k] = str
+		end
+		str = table.concat(t, "/")
+	else
+		iKS:print(_sformat("ERROR: vault ID %s not found", vaultType))
+	end
+	return str
+end
 local function reSize(maxFrames)
 	local maxSizes = {
 		name = 96,
 		key = 146,
+		dungeon = 46,
+		raid = 46,
 		pvp = 46,
 	}
 	for i,f in pairs(iKS.frames) do
@@ -869,19 +1055,30 @@ local function reSize(maxFrames)
 		if f.key.text:GetWidth() > maxSizes.key then
 			maxSizes.key = f.key.text:GetWidth()
 		end
-		--if f.pvp.text:GetWidth() > maxSizes.pvp then
-			--maxSizes.pvp = f.pvp.text:GetWidth()
-		--end
+		if f.dungeon.text:GetWidth() > maxSizes.dungeon then
+			maxSizes.dungeon = f.dungeon.text:GetWidth()
+		end
+		if f.raid.text:GetWidth() > maxSizes.raid then
+			maxSizes.raid = f.raid.text:GetWidth()
+		end
+		if f.pvp.text:GetWidth() > maxSizes.pvp then
+			maxSizes.pvp = f.pvp.text:GetWidth()
+		end
 	end
+	local w = 0
 	for k,v in pairs(maxSizes) do
-		maxSizes[k] = math.floor(v)
+		local _size = math.floor(v)
+		maxSizes[k] = math.floor(_size)
+		w = w + _size + 6
 	end
 	for i,f in pairs(iKS.frames) do
-		f.name:SetWidth(maxSizes.name+4)
-		f.key:SetWidth(maxSizes.key+4)
-		--f.pvp:SetWidth(maxSizes.pvp+4)
+		f.name:SetWidth(maxSizes.name+6)
+		f.key:SetWidth(maxSizes.key+6)
+		f.dungeon:SetWidth(maxSizes.dungeon+6)
+		f.raid:SetWidth(maxSizes.raid+6)
+		f.pvp:SetWidth(maxSizes.pvp+6)
 	end
-	local w = maxSizes.name+maxSizes.key+100-5 --+max(50)+ilvl(50) -- +maxSizes.pvp
+	
 	if w % 2 == 1 then w = w + 1 end
 	iKS.anchor:SetWidth(w)
 	iKS.affixes.aff2:ClearAllPoints()
@@ -891,7 +1088,7 @@ local function reSize(maxFrames)
 
 	iKS.affixes.aff7:SetWidth(math.floor(w/3))
 	iKS.affixes.aff7:ClearAllPoints()
-	iKS.affixes.aff7:SetPoint('TOPRIGHT', iKS.frames[maxFrames].ilvl, 'BOTTOMRIGHT', 0,1)
+	iKS.affixes.aff7:SetPoint('TOPRIGHT', iKS.frames[maxFrames].pvp, 'BOTTOMRIGHT', 0,1)
 	iKS.affixes.aff7.text:SetText(C_ChallengeMode.GetAffixInfo(iKS.currentAffixes[3]))
 
 	iKS.affixes.aff4:ClearAllPoints()
@@ -969,28 +1166,27 @@ function iKS:createMainWindow()
 		local f = iKS.frames[i]
 		f.name:Show()
 		f.key:Show()
-		f.max:Show()
-		f.ilvl:Show()
-		--f.pvp:Show()
+		f.dungeon:Show()
+		f.raid:Show()
+		f.pvp:Show()
 		if v.server == GetRealmName() then
 			f.name.text:SetText(_sformat('%s|c%s%s\124r', (v.canLoot and treasures.pve or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name))
 		else
 			f.name.text:SetText(_sformat('%s|c%s%s\124r - %s',(v.canLoot and treasure.pve or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name, v.server))
 		end
 		f.key.text:SetText(v.key.level and _sformat('%s%s (%s)|r', iKS:getItemColor(v.key.level), iKS:getZoneInfo(v.key.map), v.key.level) or '-')
-		f.max.text:SetText((not v.maxCompleted or v.maxCompleted == 0 and "-") or (v.maxCompleted >= iKS.currentMax and '|cff00ff00' .. v.maxCompleted) or (v.maxCompleted > 0 and v.maxCompleted))
-		local ilvl = C_MythicPlus.GetRewardLevelForDifficultyLevel(v.maxCompleted)
-		f.ilvl.text:SetText(v.maxCompleted > 0 and ilvl or '-')
-		--f.pvp.text:SetText(v.pvp.done and _sformat("|cff00ff00%d|r(%0.f%%)",select(2,C_PvP.GetRewardItemLevelsByTierEnum(math.max(v.pvp.lootTier, 0))), v.pvp.progress*100) or _sformat("%0.f%%", v.pvp.progress*100))
+		f.dungeon.text:SetText(getStringForVault(v, 1))
+		f.raid.text:SetText(getStringForVault(v, 3))
+		f.pvp.text:SetText(getStringForVault(v, 2))
 		reColor(f, v.faction)
 	end
 	for j = i+1, #iKS.frames do
 		local f = iKS.frames[j]
 		f.name:Hide()
 		f.key:Hide()
-		f.max:Hide()
-		f.ilvl:Hide()
-		--f.pvp:Hide()
+		f.dungeon:Hide()
+		f.raid:Hide()
+		f.pvp:Hide()
 	end
 	C_Timer.After(0, function() reSize(i) end)
 end
@@ -1010,7 +1206,7 @@ function addon:CHAT_MSG_ADDON(prefix,msg,chatType,sender)
 			local keys = {}
 			for guid,data in pairs(iKeystonesDB) do
 				if data.faction == faction and data.key.map then
-					table.insert(keys, {guid = guid, class = data.class, name = data.name, map = data.key.map, level = data.key.level, weeklyMax = data.maxCompleted})
+					table.insert(keys, {guid = guid, class = data.class, name = data.name, map = data.key.map, level = data.key.level})
 				end
 			end
 			
@@ -1020,7 +1216,7 @@ function addon:CHAT_MSG_ADDON(prefix,msg,chatType,sender)
 			end
 			local str = ""
 			for i = 1, #keys do
-				str = str .. _sformat("{%s;%s;%s;%s;%s;%s}", keys[i].guid, keys[i].name, keys[i].class, keys[i].map, keys[i].level, keys[i].weeklyMax)
+				str = str .. _sformat("{%s;%s;%s;%s;%s}", keys[i].guid, keys[i].name, keys[i].class, keys[i].map, keys[i].level)
 				if i % 3 == 0 or i == #keys then
 					_SendAddonMessage("iKeystones", str, "GUILD")
 					str = ""
@@ -1034,14 +1230,14 @@ function addon:CHAT_MSG_ADDON(prefix,msg,chatType,sender)
 				}
 			else
 				for v in _sgmatch(msg, '{(.-)}') do
-					local guid, name, class, map, level, weeklyMax = strsplit(";", v)
+					local guid, name, class, map, level = strsplit(";", v)
 						if not iKS.guildKeysList[sender] then
 							iKS.guildKeysList[sender] = {
 								chars = {},
 								other = {},
 							}
 						end
-					iKS.guildKeysList[sender].chars[guid] = {name = name, class = class, map = map, level = tonumber(level), weeklyMax = tonumber(weeklyMax)} -- use guid as key to avoid multiple entries for same character
+					iKS.guildKeysList[sender].chars[guid] = {name = name, class = class, map = map, level = tonumber(level)} -- use guid as key to avoid multiple entries for same character
 				end
 			end
 		end
@@ -1050,7 +1246,7 @@ function addon:CHAT_MSG_ADDON(prefix,msg,chatType,sender)
 			msg = msg:gsub("sync5 ", "")
 			local chars = {strsplit("_", msg)}
 			for _,v in pairs(chars) do
-				local char, class, dungeonID, keyLevel, weekly_best, week, timeStamp = v:match('(.+):(%a+):(%d+):(%d+):(%d+):(%d+):(%d)')
+				local char, class, dungeonID, keyLevel, week, timeStamp = v:match('(.+):(%a+):(%d+):(%d+):(%d+):(%d)')
 				local name = strsplit("-", name)
 				if not iKS.guildKeysList[sender] then
 					iKS.guildKeysList[sender] = {
@@ -1060,7 +1256,7 @@ function addon:CHAT_MSG_ADDON(prefix,msg,chatType,sender)
 						},
 					}
 				end
-				iKS.guildKeysList[sender][char] = {isExternal = true, name = name, class = class, map = dungeonID, level = tonumber(keyLevel), weeklyMax = tonumber(weekly_best)} -- use guid as key to avoid multiple entries for same character}
+				iKS.guildKeysList[sender][char] = {isExternal = true, name = name, class = class, map = dungeonID, level = tonumber(keyLevel)} -- use guid as key to avoid multiple entries for same character}
 			end
 		end
 	end
@@ -1176,7 +1372,7 @@ function iKS:updateGuildKeys(_min,_max,_map)
 					if not _map or (_map and data.map == _map) then
 						empty = false
 						local mapName = C_ChallengeMode.GetMapUIInfo(data.map)
-						iKS.guildKeys:AddMessage(_sformat("    |c%s%s|r (%s) - %s%s|r %s", RAID_CLASS_COLORS[data.class].colorStr, data.name, ((not data.weeklyMax and "?") or (data.weeklyMax == 0 and "-") or (data.weeklyMax >= iKS.currentMax and "|cff00ff00"..data.weeklyMax.."|r") or data.weeklyMax),iKS:getItemColor(data.level), data.level, mapName))
+						iKS.guildKeys:AddMessage(_sformat("    |c%s%s|r - %s%s|r %s", RAID_CLASS_COLORS[data.class].colorStr, data.name,iKS:getItemColor(data.level), data.level, mapName))
 					end
 				end
 			end
@@ -1267,13 +1463,6 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 			print('iKS: This character is now whitelisted.')
 		elseif msg == 'help' or msg == 'h' then
 			iKS:help()
-		elseif msg:match('^completed (%d+)$') or msg:match('^c (%d+)$') then
-			local level = msg:match('^completed (%d+)$')
-			if not level then
-				level = msg:match('^c (%d+)$')
-			end
-			if not iKS:createPlayer() then return end
-			iKeystonesDB[player].maxCompleted = tonumber(level)
 		elseif msg:match('delete') or msg:match('d') then
 			local _,char,server = msg:match("^(.-) (.-) (.*)$")
 			if not (char and server) then
