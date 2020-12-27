@@ -10,11 +10,9 @@ addon:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
 end)
 addon:RegisterEvent('ADDON_LOADED')
-addon:RegisterEvent('CHALLENGE_MODE_MAPS_UPDATE')
 addon:RegisterEvent('PLAYER_LOGIN')
 addon:RegisterEvent('CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN')
 addon:RegisterEvent('MYTHIC_PLUS_CURRENT_AFFIX_UPDATE')
-addon:RegisterEvent('MYTHIC_PLUS_NEW_WEEKLY_RECORD')
 addon:RegisterEvent('ITEM_PUSH')
 addon:RegisterEvent('BAG_UPDATE')
 addon:RegisterEvent('QUEST_LOG_UPDATE')
@@ -24,6 +22,8 @@ C_ChatInfo.RegisterAddonMessagePrefix('iKeystones')
 --C_ChatInfo.RegisterAddonMessagePrefix('AstralKeys') -- AstralKeys guild support
 addon:RegisterEvent('CHAT_MSG_PARTY')
 addon:RegisterEvent('CHAT_MSG_PARTY_LEADER')
+addon:RegisterEvent('CHALLENGE_MODE_COMPLETED')
+addon:RegisterEvent('ENCOUNTER_END')
 
 local iKS = {}
 iKS.currentMax = 0
@@ -32,9 +32,17 @@ local shouldBeCorrectInfoForWeekly = false
 local player = UnitGUID('player')
 local unitName = UnitName('player')
 local playerFaction = UnitFactionGroup('player')
-local maxPlayerLevel = GetMaxLevelForLatestExpansion()
 
+
+-- popup for loading the first time
+
+StaticPopupDialogs["IKS_MIDWEEKFIRSTLOAD"] = {
+  text = "You are logging in for the first time on this character, iKeystones might have incorrect data for the first reset.\r (missing runs and/or raid kills)",
+  button1 = OKAY,
+  hideOnEscape = true,
+}
 iKS.keystonesToMapIDs = {
+	--[[
 	[197] = 1456, -- Eye of Azhara
 	[198] = 1466, -- Darkhearth Thicket
 	[199] = 1501, -- Blackrook Hold
@@ -62,7 +70,7 @@ iKS.keystonesToMapIDs = {
 	[369] = 2097, -- Operation Mechagon - Junkyard
 	[370] = 2097, -- Operation Mechagon - Workshop
 
-
+--]]
 	[375] = 2290, -- Mists of Tirna Scithe
 	[376] = 2286, -- The Necrotic Wake
 	[377] = 2291, -- De Other Side
@@ -181,22 +189,15 @@ function iKS:weeklyReset()
 				if v.progress >= vaultThresholds[k][id] then
 					iKeystonesDB[guid].canLoot = true
 					iKeystonesDB[guid].activities = {
-						[1] = { -- m+
-							{progress = 0, level = 0, id = 0},
-							{progress = 0, level = 0, id = 0},
-							{progress = 0, level = 0, id = 0},
-						},
 						[2] = { -- pvp
 							{progress = 0, level = 0, id = 0},
 							{progress = 0, level = 0, id = 0},
 							{progress = 0, level = 0, id = 0},
 						},
-						[3] = { -- raid
-							{progress = 0, level = 0, id = 0},
-							{progress = 0, level = 0, id = 0},
-							{progress = 0, level = 0, id = 0},
-						},
 					}
+					iKeystonesDB[guid].raidHistory = {}
+					iKeystonesDB[guid].runHistory = {}
+					iKeystonesDB[guid].torghast = {}
 				end
 			end
 		end
@@ -205,9 +206,30 @@ function iKS:weeklyReset()
 	iKS:scanInventory()
 	iKS:scanCharacterMaps()
 end
-function iKS:createPlayer()
+do -- Torghast
+	local questIDs = {
+		{58198, 58199, 58200, 58201, 58202, 58203, 61975, 61976}, -- Coldhearth Insignia
+		{58186, 58187, 58188, 58189, 58190, 58191, 61971, 61972}, -- TODO check zone name
+		{58205, 58205, 59326, 59334, 59335, 59336, 61977, 61978}, -- Mort'regar
+	}
+	function iKS:checkTorghast()
+		if not iKS:createPlayer() then return end
+		for zone, questIDs in pairs(questIDs) do
+			local count = 0
+			for _, id in pairs(questIDs) do
+				if IsQuestFlaggedCompleted(id) then
+					count = count + 1
+				end
+			end
+			if count > 0 then
+				iKeystonesDB[player].torghast[zone] = count
+			end
+		end
+	end
+end
+function iKS:createPlayer(login)
 	if player and not iKeystonesDB[player] then
-		if UnitLevel('player') >= maxPlayerLevel and not iKeystonesConfig.ignoreList[player] then
+		if UnitLevel('player') >= GetMaxLevelForLatestExpansion() and not iKeystonesConfig.ignoreList[player] then
 			iKeystonesDB[player] = {
 				name = UnitName('player'),
 				server = GetRealmName(),
@@ -216,34 +238,26 @@ function iKS:createPlayer()
 				canLoot = C_WeeklyRewards.HasAvailableRewards(),
 				faction = UnitFactionGroup('player'),
 				activities = {
-					[1] = { -- m+
-						{progress = 0, level = 0, id = 0},
-						{progress = 0, level = 0, id = 0},
-						{progress = 0, level = 0, id = 0},
-					},
 					[2] = { -- pvp
 						{progress = 0, level = 0, id = 0},
 						{progress = 0, level = 0, id = 0},
 						{progress = 0, level = 0, id = 0},
 					},
-					[3] = { -- raid
-						{progress = 0, level = 0, id = 0},
-						{progress = 0, level = 0, id = 0},
-						{progress = 0, level = 0, id = 0},
-					},
 				},
-				runHistory = {},
+				torghast = {},
 			}
 			return true
 		else
 			return false
 		end
-	elseif player and UnitLevel('player') < maxPlayerLevel and iKeystonesDB[player] then
+	elseif player and UnitLevel('player') < GetMaxLevelForLatestExpansion() and iKeystonesDB[player] then
 		iKeystonesDB[player] = nil
 		return false
 	elseif player and iKeystonesDB[player] then
-		iKeystonesDB[player].name = UnitName('player') -- fix for name changing
-		iKeystonesDB[player].faction = UnitFactionGroup('player') -- faction change (tbh i think guid would change) and update old DB
+		if login then
+			iKeystonesDB[player].name = UnitName('player') -- fix for name changing
+			iKeystonesDB[player].faction = UnitFactionGroup('player') -- faction change (tbh i think guid would change) and update old DB
+		end
 		return true
 	else
 		return false
@@ -292,24 +306,41 @@ function iKS:scanCharacterMaps()
 		iKeystonesDB[player].maxCompleted = maxCompleted
 	end
 	--]]
-	local t = C_WeeklyRewards.GetActivities()
-	if not t then print("Error: Activities not found") return end
+	
 	-- type: 1 m+, 2 pvp, 3 raid
-	for k,v in pairs(t) do
-			if v.type == 1 or v.type == 2 or v.type == 3 then
-				iKeystonesDB[player].activities[v.type][v.index] = {progress = v.progress, level = v.level, id = v.id}
-			end
+	local isFirstLogin = false
+	if not iKeystonesDB[player].raidHistory then
+		iKeystonesDB[player].raidHistory = {}
+		isFirstLogin = true
+		StaticPopup_Show("IKS_MIDWEEKFIRSTLOAD")
 	end
-	iKeystonesDB[player].runHistory = {}
-	local history = C_MythicPlus.GetRunHistory(false, true);
-	for k,v in pairs(history) do
-		if v.thisWeek then -- is this necessery?
-			iKeystonesDB[player].runHistory[v.level] = iKeystonesDB[player].runHistory[v.level] and iKeystonesDB[player].runHistory[v.level] + 1 or 1
+	if isFirstLogin then
+		local t = C_WeeklyRewards.GetActivities()
+		if not t then print("Error: Activities not found") return end
+		for k,v in pairs(t) do
+				if v.type == 3 and isFirstLogin then
+					local dif = (v.level == 17 and "lfr") or (v.level == 14 and "normal") or (v.level == 15 and "heroic") or (v.level == 16 and "mythic") or "unknown"
+					if v.progress >= v.threshold then
+						if not iKeystonesDB[player].raidHistory[dif] or iKeystonesDB[player].raidHistory[dif] < v.threshold then
+							iKeystonesDB[player].raidHistory[dif] = v.threshold
+						end
+					elseif v.progress > 0 then
+						iKeystonesDB[player].raidHistory[dif] = v.progress
+					end
+				elseif v.type == 2 then
+					iKeystonesDB[player].activities[v.type][v.index] = {progress = v.progress, level = v.level, id = v.id}
+				end
+		end
+		iKeystonesDB[player].runHistory = {}
+		local history = C_MythicPlus.GetRunHistory(false, true);
+		for k,v in pairs(history) do
+			if v.thisWeek then -- is this necessery?
+				iKeystonesDB[player].runHistory[v.level] = iKeystonesDB[player].runHistory[v.level] and iKeystonesDB[player].runHistory[v.level] + 1 or 1
+			end
 		end
 	end
 	iKeystonesDB[player].canLoot = C_WeeklyRewards.HasAvailableRewards()
 end
-
 function iKS:scanInventory(requestingSlots, requestingItemLink)
 	if not iKS:createPlayer() then return end
 	local _map = C_MythicPlus.GetOwnedKeystoneChallengeMapID()
@@ -482,26 +513,28 @@ function addon:PLAYER_LOGIN()
 			iKS.anchor:Hide()
 		end
 	end)
+	--iKS:scanCharacterMaps()
 end
-local version = 1.930
+local version = 1.940
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
-		iKeystonesConfig = iKeystonesConfig or {}
-		if iKeystonesConfig.version < 1.930 then -- reset data for new expansion (db doesn't have level data)
-			iKeystonesDB = nil
-			iKeystonesDB = {}
-		end
+		iKeystonesConfig = iKeystonesConfig or {
+			version = version,
+			ignoreList = {},
+			affstring = "",
+		}
 		if not iKeystonesConfig.version or iKeystonesConfig.version < version then
-			iKeystonesConfig.version = version
-			for guid,data in pairs(iKeystonesDB) do
-				if data.isle then
-					data.isle = nil
-				end
-				if data.pvp then
-					data.pvp = nil
+			if iKeystonesConfig.version and iKeystonesConfig.version < 1.930 then -- reset data for new expansion (db doesn't have level data)
+				iKeystonesDB = nil
+				iKeystonesDB = {}
+			end
+			if not iKeystonesConfig.version or iKeystonesConfig.version <= 1940 then
+				for guid,data in pairs(iKeystonesDB) do
+					data.torghast = {}
 				end
 			end
+			iKeystonesConfig.version = version
 		end
 		if not iKeystonesConfig.ignoreList then
 			iKeystonesConfig.ignoreList = {}
@@ -511,13 +544,11 @@ function addon:ADDON_LOADED(addonName)
 			iKeystonesConfig.aff = nil
 			iKeystonesConfig.affstring = ""
 		end
-		if iKeystonesConfig.ak then -- remove old ak stuff from wtf file
-			iKeystonesConfig.ak = nil
-		end
 		--LoadAddOn("Blizzard_ChallengesUI")
 	elseif addonName == 'Blizzard_ChallengesUI' then
 		addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	end
+	iKS:checkTorghast()
 end
 
 --Fix for Blizzard_ChallengesUI gving errors from 9.0.1 when loaded during loading screens
@@ -561,7 +592,7 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 		iKeystonesConfig.affstring = affstring
 		iKS:weeklyReset()
 	end
-	if not iKS:createPlayer() then return end
+	if not iKS:createPlayer(true) then return end
 	local key = C_MythicPlus.GetOwnedKeystoneLevel()
 	local mapID = C_MythicPlus.GetOwnedKeystoneChallengeMapID()
 	iKS.keyLevel = key
@@ -581,14 +612,12 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 		end
 	end
 end
-function addon:MYTHIC_PLUS_NEW_WEEKLY_RECORD(mapChallengeModeID, completionMilliseconds, level)
-	if not iKS:createPlayer() or not level or not IsValidDungeon(mapChallengeModeID) then return end
-	iKS:scanCharacterMaps()
-	--[[
-	if level > iKeystonesDB[player].maxCompleted then
-		iKeystonesDB[player].maxCompleted = level
-	end
-	--]]
+function addon:CHALLENGE_MODE_COMPLETED()
+	if not iKS:createPlayer() then return end
+	local activeKeystoneLevel = C_ChallengeMode.GetActiveKeystoneInfo()
+	if not activeKeystoneLevel then return end
+	print("keystone completed:", activeKeystoneLevel)
+	iKeystonesDB[player].runHistory[activeKeystoneLevel] = iKeystonesDB[player].runHistory[activeKeystoneLevel] + 1 or 1
 end
 function addon:BAG_UPDATE()
 	iKS:scanInventory()
@@ -598,14 +627,12 @@ function addon:ITEM_PUSH(bag, id)
 		iKS:scanInventory()
 	end
 end
-function addon:CHALLENGE_MODE_MAPS_UPDATE()
-	iKS:scanCharacterMaps()
-end
 function addon:WEEKLY_REWARDS_UPDATE()
 	iKS:scanCharacterMaps()
 end
 function addon:QUEST_LOG_UPDATE()
 	if not iKeystonesDB[player] then return end
+	iKS:checkTorghast()
 	if IsQuestFlaggedCompleted(62079) then -- added back mid patch? O.o, use it to make weekly chest registering faster
 		iKeystonesDB[player].canLoot = false
 	end
@@ -674,7 +701,27 @@ end
 function addon:CHAT_MSG_RAID_LEADER(msg)
 	ChatHandling(msg, 'raid')
 end
-
+do
+	local validEncounters = {
+		[2405] = true, -- Artificer Xy'mox
+		[2383] = true, -- Hungering Destoyer
+		[2418] = true, -- Huntsman Altimor
+		[2406] = true, -- Lady Inerva Darkvein
+		[2398] = true, -- Shriekwing
+		[2407] = true, -- Sire Denathrius
+		[2399] = true, -- Sludgefist
+		[2417] = true, -- Stone Legion Generals
+		[2402] = true, -- Sun King's Salvation
+		[2412] = true, -- The Council of Blood
+	}
+	function addon:ENCOUNTER_END(encounterID, encounterName, difficultyID, raidSize, kill)
+		if not iKS:createPlayer() then return end
+		if kill == 1 and validEncounters[encounterID] then
+			local dif = (difficultyID == 17 and "lfr") or (difficultyID == 14 and "normal") or (difficultyID == 15 and "heroic") or (difficultyID == 16 and "mythic") or "unknown"
+			iKeystonesDB[player].raidHistory[dif] = iKeystonesDB[player].raidHistory[dif] and iKeystonesDB[player].raidHistory[dif] + 1 or 1
+		end
+	end
+end
 function addon:CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN()
 	local _, _, _, _, _, _, _, mapID = GetInstanceInfo()
 	if iKS.mapID and iKS.keystonesToMapIDs[iKS.mapID] == mapID then
@@ -899,12 +946,25 @@ function iKS:createNewLine()
 	f.key.text:SetText(#iKS.frames == 1 and 'Current key' or '')
 	f.key.text:Show()
 
+	f.maxCompleted = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
+	f.maxCompleted:SetSize(150,20)
+	f.maxCompleted:SetBackdrop(iKS.bd)
+	f.maxCompleted:SetBackdropColor(.1,.1,.1,.9)
+	f.maxCompleted:SetBackdropBorderColor(0,0,0,1)
+	f.maxCompleted:SetPoint('TOPLEFT', f.key, 'TOPRIGHT', -1,0)
+
+	f.maxCompleted.text = f.maxCompleted:CreateFontString()
+	f.maxCompleted.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+	f.maxCompleted.text:SetPoint('CENTER', f.maxCompleted, 'CENTER', 0,0)
+	f.maxCompleted.text:SetText(#iKS.frames == 1 and 'Max' or '')
+	f.maxCompleted.text:Show()
+
 	f.dungeon = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.dungeon:SetSize(50,20)
 	f.dungeon:SetBackdrop(iKS.bd)
 	f.dungeon:SetBackdropColor(.1,.1,.1,.9)
 	f.dungeon:SetBackdropBorderColor(0,0,0,1)
-	f.dungeon:SetPoint('TOPLEFT', f.key, 'TOPRIGHT', -1,0)
+	f.dungeon:SetPoint('TOPLEFT', f.maxCompleted, 'TOPRIGHT', -1,0)
 
 	f.dungeon.text = f.dungeon:CreateFontString()
 	f.dungeon.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
@@ -937,6 +997,20 @@ function iKS:createNewLine()
 	f.pvp.text:SetPoint('CENTER', f.pvp, 'CENTER', 0,0)
 	f.pvp.text:SetText(#iKS.frames == 1 and 'PvP' or '')
 	f.pvp.text:Show()
+
+	f.torghast = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
+	f.torghast:SetSize(50,20)
+	f.torghast:SetBackdrop(iKS.bd)
+	f.torghast:SetBackdropColor(.1,.1,.1,.9)
+	f.torghast:SetBackdropBorderColor(0,0,0,1)
+	f.torghast:SetPoint('TOPLEFT', f.pvp, 'TOPRIGHT', -1,0)
+
+	f.torghast.text = f.torghast:CreateFontString()
+	f.torghast.text:SetFont('Interface\\AddOns\\iKeystones\\FiraMono-Regular.otf', 14, 'OUTLINE')
+	f.torghast.text:SetPoint('CENTER', f.torghast, 'CENTER', 0,0)
+	f.torghast.text:SetText(#iKS.frames == 1 and 'Torghast' or '')
+	f.torghast.text:Show()
+	
 end
 
 local function reColor(f, faction)
@@ -948,9 +1022,11 @@ local function reColor(f, faction)
 	end
 	f.name:SetBackdropColor(r,g,b,.9)
 	f.key:SetBackdropColor(r,g,b,.9)
+	f.maxCompleted:SetBackdropColor(r,g,b,.9)
 	f.dungeon:SetBackdropColor(r,g,b,.9)
 	f.raid:SetBackdropColor(r,g,b,.9)
 	f.pvp:SetBackdropColor(r,g,b,.9)
+	f.torghast:SetBackdropColor(r,g,b,.9)
 end
 local treasures = {
 	pve = '|TInterface\\Icons\\inv_misc_treasurechest02b:16|t',
@@ -985,13 +1061,14 @@ local tempILvLstuff = {
 		226, -- 2100+ 
 	},
 	{ -- Raid
-		[14] = 200,
-		[15] = 213,
-		[16] = 226,
+		lfr = 193,
+		normal = 200,
+		heroic = 213,
+		mythic = 226,
 	},
 }
 local function getItemLevelForWeekly(id, vaultType)
-	if id <= 0 then
+	if id == 0 then
 		return 0, 1
 	end
 	if vaultType == 1 and id >= 15 then -- m+
@@ -1000,7 +1077,7 @@ local function getItemLevelForWeekly(id, vaultType)
 		if not tempILvLstuff[vaultType][id] then return "??", 226 end
 		return tempILvLstuff[vaultType][id], 226
 	end
-	return tempILvLstuff[vaultType][id], 226			
+	return tempILvLstuff[vaultType][id], 226
 	
 	--[[ this isn't reliable right now, use hard coded shit
 	if vaultType == 1 then
@@ -1016,37 +1093,76 @@ local function getItemLevelForWeekly(id, vaultType)
 	end
 	]]
 end
+local function getDungeonVault(d, threshold)
+	local i = 0
+	for level, amount in spairs(d, function(t,a,b) return a > b end) do
+		i = i + amount
+		if i >= threshold then
+			return level
+		end
+	end
+	return i/threshold
+end
+local function getRaidVault(data, threshold)
+	if not data then return 0 end
+	local mythic = data.mythic or 0
+	if mythic >= threshold then return "mythic" end
+	local heroic = data.heroic or 0
+	if mythic + heroic >= threshold then return "heroic" end
+	local normal = data.normal or 0
+	if mythic + heroic + normal >= threshold then return "normal" end
+	local lfr = data.lfr or 0
+	if mythic + heroic + normal + lfr >= threshold then return "lfr" end
+	return (mythic+heroic+normal+lfr)/threshold
+end
 local function getStringForVault(data, vaultType)
-	local str
-	if vaultType == 1 or vaultType == 2 or vaultType == 3 then
+	if vaultType == "raid" then
 		local t = {}
-		for k,v in ipairs(data.activities[vaultType]) do
-			local str
-			if v.progress >= vaultThresholds[vaultType][k] then -- completed
-				local ilvl, upgraded = getItemLevelForWeekly(v.level, vaultType)
-				if ilvl == upgraded then -- max reward
-					str = _sformat("|cff00ff00%s|r", ilvl)
+		for i = 1, 3 do
+			local threshold = getRaidVault(data.raidHistory, vaultThresholds[3][i])
+			if tonumber(threshold) and threshold < 1 then
+				if threshold == 0 then
+					t[i] = "-"
 				else
-					str = ilvl
+					t[i] = _sformat("%.0f%%", threshold*100)
 				end
 			else
-				str = v.progress == 0 and "-" or _sformat("%.0f%%", (v.progress/vaultThresholds[vaultType][k])*100)
+				local ilvl, upgraded = getItemLevelForWeekly(threshold, 3)
+				t[i] = ilvl == upgraded and _sformat("|cff00ff00%s|r", ilvl) or ilvl
 			end
-			t[k] = str
 		end
-		str = table.concat(t, "/")
-	else
-		iKS:print(_sformat("ERROR: vault ID %s not found", vaultType))
+		return table.concat(t, "/")
+	elseif vaultType == "dungeon" then
+		local t = {}
+		for i = 1, 3 do
+			local threshold = getDungeonVault(data.runHistory, vaultThresholds[1][i])
+			if threshold < 1 then
+				if threshold == 0 then
+					t[i] = "-"
+				else
+					t[i] = _sformat("%.0f%%", threshold*100)
+				end
+			else
+				local ilvl, upgraded = getItemLevelForWeekly(threshold, 1)
+				t[i] = ilvl == upgraded and _sformat("|cff00ff00%s|r", ilvl) or ilvl
+			end
+		end
+		return table.concat(t, "/")
+	elseif vaultType == "pvp" then
+		return "??/??/??"
 	end
-	return str
+	iKS:print(_sformat("ERROR: vault ID %s not found", vaultType))
+	return "??/??/??"
 end
 local function reSize(maxFrames)
 	local maxSizes = {
 		name = 96,
 		key = 146,
+		maxCompleted = 46,
 		dungeon = 46,
 		raid = 46,
 		pvp = 46,
+		torghast = 46,
 	}
 	for i,f in pairs(iKS.frames) do
 		if f.name.text:GetWidth() > maxSizes.name then
@@ -1054,6 +1170,9 @@ local function reSize(maxFrames)
 		end
 		if f.key.text:GetWidth() > maxSizes.key then
 			maxSizes.key = f.key.text:GetWidth()
+		end
+		if f.maxCompleted.text:GetWidth() > maxSizes.maxCompleted then
+			maxSizes.maxCompleted = f.maxCompleted.text:GetWidth()
 		end
 		if f.dungeon.text:GetWidth() > maxSizes.dungeon then
 			maxSizes.dungeon = f.dungeon.text:GetWidth()
@@ -1063,6 +1182,9 @@ local function reSize(maxFrames)
 		end
 		if f.pvp.text:GetWidth() > maxSizes.pvp then
 			maxSizes.pvp = f.pvp.text:GetWidth()
+		end
+		if f.torghast.text:GetWidth() > maxSizes.torghast then
+			maxSizes.torghast = f.torghast.text:GetWidth()
 		end
 	end
 	local w = 0
@@ -1074,9 +1196,11 @@ local function reSize(maxFrames)
 	for i,f in pairs(iKS.frames) do
 		f.name:SetWidth(maxSizes.name+6)
 		f.key:SetWidth(maxSizes.key+6)
+		f.maxCompleted:SetWidth(maxSizes.maxCompleted+6)
 		f.dungeon:SetWidth(maxSizes.dungeon+6)
 		f.raid:SetWidth(maxSizes.raid+6)
 		f.pvp:SetWidth(maxSizes.pvp+6)
+		f.torghast:SetWidth(maxSizes.torghast+6)
 	end
 	
 	if w % 2 == 1 then w = w + 1 end
@@ -1088,7 +1212,7 @@ local function reSize(maxFrames)
 
 	iKS.affixes.aff7:SetWidth(math.floor(w/3))
 	iKS.affixes.aff7:ClearAllPoints()
-	iKS.affixes.aff7:SetPoint('TOPRIGHT', iKS.frames[maxFrames].pvp, 'BOTTOMRIGHT', 0,1)
+	iKS.affixes.aff7:SetPoint('TOPRIGHT', iKS.frames[maxFrames].torghast, 'BOTTOMRIGHT', 0,1)
 	iKS.affixes.aff7.text:SetText(C_ChallengeMode.GetAffixInfo(iKS.currentAffixes[3]))
 
 	iKS.affixes.aff4:ClearAllPoints()
@@ -1166,6 +1290,7 @@ function iKS:createMainWindow()
 		local f = iKS.frames[i]
 		f.name:Show()
 		f.key:Show()
+		f.maxCompleted:Show()
 		f.dungeon:Show()
 		f.raid:Show()
 		f.pvp:Show()
@@ -1175,18 +1300,55 @@ function iKS:createMainWindow()
 			f.name.text:SetText(_sformat('%s|c%s%s\124r - %s',(v.canLoot and treasure.pve or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name, v.server))
 		end
 		f.key.text:SetText(v.key.level and _sformat('%s%s (%s)|r', iKS:getItemColor(v.key.level), iKS:getZoneInfo(v.key.map), v.key.level) or '-')
-		f.dungeon.text:SetText(getStringForVault(v, 1))
-		f.raid.text:SetText(getStringForVault(v, 3))
-		f.pvp.text:SetText(getStringForVault(v, 2))
+		do
+			local m = 0
+			for k,v in pairs(v.runHistory) do
+				if k > m then
+					m = k
+				end
+			end
+			f.maxCompleted.text:SetText(m == 0 and "-" or m)
+		end
+		f.dungeon.text:SetText(getStringForVault(v, "dungeon"))
+		f.raid.text:SetText(getStringForVault(v, "raid"))
+		f.pvp.text:SetText(getStringForVault(v, "pvp"))
+		local torghast
+		do
+			local count = 0
+			for _,_v in spairs(v.torghast) do
+				if _v == 8 then
+					if not torghast then
+						torghast = _sformat("|cff00ff00%s|r", _v)
+					else
+						torghast = _sformat("%s/|cff00ff00%s|r", torghast, _v)
+					end
+				else
+					if not torghast then
+						torghast = _v
+					else
+						torghast = _sformat("%s/%s", torghast, _v)
+					end
+				end
+				count = count + 1
+			end
+			if count == 0 then
+				torghast = "-/-"
+			elseif count == 1 then
+				torghast = _sformat("%s/-", torghast)
+			end
+		end
+		f.torghast.text:SetText(torghast or "")
 		reColor(f, v.faction)
 	end
 	for j = i+1, #iKS.frames do
 		local f = iKS.frames[j]
 		f.name:Hide()
 		f.key:Hide()
+		f.maxCompleted:Hide()
 		f.dungeon:Hide()
 		f.raid:Hide()
 		f.pvp:Hide()
+		f.torghast:Hide()
 	end
 	C_Timer.After(0, function() reSize(i) end)
 end
