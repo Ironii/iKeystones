@@ -515,7 +515,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	--iKS:scanCharacterMaps()
 end
-local version = 1.940
+local version = 1.941
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -616,8 +616,7 @@ function addon:CHALLENGE_MODE_COMPLETED()
 	if not iKS:createPlayer() then return end
 	local activeKeystoneLevel = C_ChallengeMode.GetActiveKeystoneInfo()
 	if not activeKeystoneLevel then return end
-	print("keystone completed:", activeKeystoneLevel)
-	iKeystonesDB[player].runHistory[activeKeystoneLevel] = iKeystonesDB[player].runHistory[activeKeystoneLevel] + 1 or 1
+	iKeystonesDB[player].runHistory[activeKeystoneLevel] = iKeystonesDB[player].runHistory[activeKeystoneLevel] and iKeystonesDB[player].runHistory[activeKeystoneLevel] + 1 or 1
 end
 function addon:BAG_UPDATE()
 	iKS:scanInventory()
