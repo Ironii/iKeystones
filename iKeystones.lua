@@ -136,16 +136,15 @@ iKS.affixCycles = {
 	{affixIDS.FORTIFIED, affixIDS.BURSTRING, affixIDS.VOLCANIC}, -- Confirmed
 	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.STORMING}, -- Confirmed
 	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.GRIEVOUS}, -- Confirmed
-	{affixIDS.TYRANNICAL, affixIDS.BURSTING, affixIDS.VOLCANIC}, -- Guess
-	{affixIDS.FORTIFIED, affixIDS.RAGING, affixIDS.QUAKING}, -- Guess
-	{affixIDS.TYRANNICAL, affixIDS.INSPIRING, affixIDS.EXPLOSIVE}, -- Guess
+	{affixIDS.TYRANNICAL, affixIDS.INSPIRING, affixIDS.NECROTIC}, -- Confirmed
+	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.QUAKING}, -- Guess
+	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.EXPLOSIVE}, -- Guess
+	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.VOLCANIC}, -- Guess
+	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.NECROTIC}, -- Guess	
+	{affixIDS.FORTIFIED, affixIDS.INSPIRING, affixIDS.STORMING}, -- Guess	
+	{affixIDS.TYRANNICAL, affixIDS.BURSTING, affixIDS.EXPLOSIVE}, -- Guess
 	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.GRIEVOUS}, -- Guess
-	{affixIDS.TYRANNICAL, affixIDS.BURSTRING, affixIDS.STORMING}, -- Guess
-	{affixIDS.FORTIFIED, affixIDS.BOLSTERING, affixIDS.NECROTIC}, -- Guess
-	{affixIDS.TYRANNICAL, affixIDS.SPITEFUL, affixIDS.VOLCANIC}, -- Guess
-	{affixIDS.FORTIFIED, affixIDS.RAGING, affixIDS.EXPLOSIVE}, -- Guess
-	{affixIDS.TYRANNICAL, affixIDS.SANGUINE, affixIDS.QUAKING}, -- Guess
-	{affixIDS.FORTIFIED, affixIDS.INSPIRING, affixIDS.NECROTIC}, -- Guess
+	{affixIDS.FORTIFIED, affixIDS.RAGING, affixIDS.QUAKING}, -- Guess
 }
 end
 --C_MythicPlus.GetLastWeeklyBestInformation();
