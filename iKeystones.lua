@@ -184,24 +184,40 @@ local function spairs(t, order)
 end
 function iKS:weeklyReset()
 	for guid,data in pairs(iKeystonesDB) do
-		for k,t in pairs(data.activities) do
-			for id, v in pairs(t) do
-				if v.progress >= vaultThresholds[k][id] then
-					iKeystonesDB[guid].canLoot = true
-					iKeystonesDB[guid].activities = {
-						[2] = { -- pvp
-							{progress = 0, level = 0, id = 0},
-							{progress = 0, level = 0, id = 0},
-							{progress = 0, level = 0, id = 0},
-						},
-					}
-					iKeystonesDB[guid].raidHistory = {}
-					iKeystonesDB[guid].runHistory = {}
-					iKeystonesDB[guid].torghast = {}
-				end
+		if data.activities and data.activities[2] and data.activities[2].progress then
+			if data.activities[2].progress >= vaultThresholds[2][1] then
+				data.canLoot = true
 			end
 		end
-		iKeystonesDB[guid].key = {}
+		if not data.canLoot and data.raidHistory then
+			local c = 0
+			for k,v in pairs(data.raidHistory) do
+				c = c + v
+			end
+			if c >= vaultThresholds[3][1] then
+				data.canLoot = true
+			end
+		end
+		if not data.canLoot and data.runHistory then
+			local c = 0
+			for k,v in pairs(data.runHistory) do
+				c = c + v
+			end
+			if c >= vaultThresholds[1][1] then
+				data.canLoot = true
+			end
+		end
+		data.raidHistory = {}
+		data.runHistory = {}
+		data.torghast = {}
+		data.key = {}
+		data.activities = {
+			[2] = { -- pvp
+				{progress = 0, level = 0, id = 0},
+				{progress = 0, level = 0, id = 0},
+				{progress = 0, level = 0, id = 0},
+			}
+		}
 	end
 	iKS:scanInventory()
 	iKS:scanCharacterMaps()
@@ -515,7 +531,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	--iKS:scanCharacterMaps()
 end
-local version = 1.941
+local version = 1.942
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -586,7 +602,7 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	if iKeystonesDB[player] then
 		iKeystonesDB[player].canLoot = C_WeeklyRewards.HasAvailableRewards()
 	end
-	local affstring = _sformat("%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
+	local affstring = _sformat("1%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
 	--print("affixes:",affstring) -- debug
 	if iKeystonesConfig.affstring ~= affstring then
 		iKeystonesConfig.affstring = affstring
