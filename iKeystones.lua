@@ -183,10 +183,8 @@ local function spairs(t, order)
 end
 function iKS:weeklyReset()
 	for guid,data in pairs(iKeystonesDB) do
-		if data.activities and data.activities[2] and data.activities[2].progress then
-			if data.activities[2].progress >= vaultThresholds[2][1] then
-				data.canLoot = true
-			end
+		if data.PvP.progress > vaultThresholds[2][1] then
+			data.canLoot = true
 		end
 		if not data.canLoot and data.raidHistory then
 			local c = 0
@@ -210,13 +208,7 @@ function iKS:weeklyReset()
 		data.runHistory = {}
 		data.torghast = {}
 		data.key = {}
-		data.activities = {
-			[2] = { -- pvp
-				{progress = 0, level = 0, id = 0},
-				{progress = 0, level = 0, id = 0},
-				{progress = 0, level = 0, id = 0},
-			}
-		}
+		data.PvP = {progress = 0, level = 0}
 	end
 	iKS:scanInventory()
 	iKS:scanCharacterMaps()
@@ -226,6 +218,8 @@ do -- Torghast
 		{58198, 58199, 58200, 58201, 58202, 58203, 61975, 61976}, -- Coldhearth Insignia
 		{58186, 58187, 58188, 58189, 58190, 58191, 61971, 61972}, -- TODO check zone name
 		{58205, 58205, 59326, 59334, 59335, 59336, 61977, 61978}, -- Mort'regar
+		{58192, 58193, 58194, 58195, 58196, 58197, 61973, 61974}, -- The Soulforges
+		{59337, 61101, 61131, 61132, 61133, 61134, 61979, 61980}, -- Upper Reaches
 	}
 	function iKS:checkTorghast()
 		if not iKS:createPlayer() then return end
@@ -252,13 +246,7 @@ function iKS:createPlayer(login)
 				key = {},
 				canLoot = C_WeeklyRewards.HasAvailableRewards(),
 				faction = UnitFactionGroup('player'),
-				activities = {
-					[2] = { -- pvp
-						{progress = 0, level = 0, id = 0},
-						{progress = 0, level = 0, id = 0},
-						{progress = 0, level = 0, id = 0},
-					},
-				},
+				pvp = {progress = 0, level = 0},
 				torghast = {},
 			}
 			return true
@@ -329,23 +317,21 @@ function iKS:scanCharacterMaps()
 		isFirstLogin = true
 		StaticPopup_Show("IKS_MIDWEEKFIRSTLOAD")
 	end
+	local t = C_WeeklyRewards.GetActivities() -- for pvp
+	if not t then print("Error: Activities not found") return end
 	if isFirstLogin then
-		local t = C_WeeklyRewards.GetActivities()
-		if not t then print("Error: Activities not found") return end
-		for k,v in pairs(t) do
-				if v.type == 3 and isFirstLogin then
-					local dif = (v.level == 17 and "lfr") or (v.level == 14 and "normal") or (v.level == 15 and "heroic") or (v.level == 16 and "mythic") or "unknown"
-					if v.progress >= v.threshold then
-						if not iKeystonesDB[player].raidHistory[dif] or iKeystonesDB[player].raidHistory[dif] < v.threshold then
-							iKeystonesDB[player].raidHistory[dif] = v.threshold
-						end
-					elseif v.progress > 0 then
-						iKeystonesDB[player].raidHistory[dif] = v.progress
-					end
-				elseif v.type == 2 then
-					iKeystonesDB[player].activities[v.type][v.index] = {progress = v.progress, level = v.level, id = v.id}
+		for k,v in pairs(t[3]) do
+			local dif = (v.level == 17 and "lfr") or (v.level == 14 and "normal") or (v.level == 15 and "heroic") or (v.level == 16 and "mythic") or "unknown"
+			if v.progress >= v.threshold then
+				if not iKeystonesDB[player].raidHistory[dif] or iKeystonesDB[player].raidHistory[dif] < v.threshold then
+					iKeystonesDB[player].raidHistory[dif] = v.threshold
 				end
+			elseif v.progress > 0 then
+				iKeystonesDB[player].raidHistory[dif] = v.progress
+			end
 		end
+	end
+	if isFirstLogin then
 		iKeystonesDB[player].runHistory = {}
 		local history = C_MythicPlus.GetRunHistory(false, true);
 		for k,v in pairs(history) do
@@ -353,6 +339,9 @@ function iKS:scanCharacterMaps()
 				iKeystonesDB[player].runHistory[v.level] = iKeystonesDB[player].runHistory[v.level] and iKeystonesDB[player].runHistory[v.level] + 1 or 1
 			end
 		end
+	end
+	if t[2] and t[2][1] then -- first pvp box
+		iKeystonesDB[player].PvP= {progress = t[2][1].progress, level = t[2][1].level}
 	end
 	iKeystonesDB[player].canLoot = C_WeeklyRewards.HasAvailableRewards()
 end
@@ -419,10 +408,16 @@ function iKS:printKeystones()
 			itemLink = UNKNOWN
 		end
 		local str = ''
+		local maxCompleted = 0
+		for k,v in pairs(data.runHistory) do
+			if k > maxCompleted then
+				maxCompleted = k
+			end
+		end
 		if data.server == GetRealmName() then
-			str = _sformat('|c%s%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, itemLink, (data.maxCompleted >= iKS.currentMax and '|cff00ff00' .. data.maxCompleted) or data.maxCompleted)
+			str = _sformat('|c%s%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, itemLink, (maxCompleted >= iKS.currentMax and '|cff00ff00' .. maxCompleted) or maxCompleted)
 		else
-			str = _sformat('|c%s%s-%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, data.server,itemLink,(data.activities[1][1].level >= iKS.currentMax and '|cff00ff00' .. data.activities[1][1].level) or data.activities[1][1].level)
+			str = _sformat('|c%s%s-%s\124r: %s M:%s', RAID_CLASS_COLORS[data.class].colorStr, data.name, data.server,itemLink,(maxCompleted >= iKS.currentMax and '|cff00ff00' .. maxCompleted) or maxCompleted)
 		end
 		print(str)
 	end
@@ -448,7 +443,13 @@ function iKS:PasteKeysToChat(all,channel, exactLevel, minLevel, maxLevel, reques
 			end
 			if data.faction == faction and (mapID == data.key.map or not mapID) then
 				--if not level or (level and data.key.level and data.key.level >= level) then
-				if not requestingWeekly or (requestingWeekly and data.activities[1][1].level < iKS.currentMax) then
+				local maxCompleted = 0
+				for k,v in pairs(data.runHistory) do
+					if k > maxCompleted then
+						maxCompleted = k
+					end
+				end
+				if not requestingWeekly or (requestingWeekly and maxCompleted < iKS.currentMax) then
 					if iKS:shouldReportKey(data.key.level, exactLevel, minLevel, maxLevel) then
 						local itemLink = ''
 						if data.key.map then
@@ -530,7 +531,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	--iKS:scanCharacterMaps()
 end
-local version = 1.942
+local version = 1.943
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -549,7 +550,16 @@ function addon:ADDON_LOADED(addonName)
 					data.torghast = {}
 				end
 			end
+			if iKeystonesConfig.version and iKeystonesConfig.version < 1.943 then -- remove activities and convert it into .PvP
+				for guid,data in pairs(iKeystonesDB) do
+					local p = data.activities[2][1].progress
+					local l = data.activities[2][1].level
+					data.PvP = {progress = p or 0, level = l or 0}
+					data.activities = nil
+				end
+			end
 			iKeystonesConfig.version = version
+			
 		end
 		if not iKeystonesConfig.ignoreList then
 			iKeystonesConfig.ignoreList = {}
@@ -647,7 +657,7 @@ end
 function addon:QUEST_LOG_UPDATE()
 	if not iKeystonesDB[player] then return end
 	iKS:checkTorghast()
-	if IsQuestFlaggedCompleted(62079) then -- added back mid patch? O.o, use it to make weekly chest registering faster
+	if IsQuestFlaggedCompleted(62079) then
 		iKeystonesDB[player].canLoot = false
 	end
 end
@@ -1068,11 +1078,11 @@ local tempILvLstuff = {
 		226, -- 15
 	},
 	{ -- PvP
-		200, -- Unranked
-		207, -- 1400-1599
-		213, -- 1600-1799
-		220, -- 1800-2099
-		226, -- 2100+ 
+		[0] = 200, -- Unranked
+		[1] = 207, -- 1400-1599
+		[2] = 213, -- 1600-1799
+		[3] = 220, -- 1800-2099
+		[4] = 226, -- 2100+
 	},
 	{ -- Raid
 		lfr = 193,
@@ -1082,17 +1092,13 @@ local tempILvLstuff = {
 	},
 }
 local function getItemLevelForWeekly(id, vaultType)
-	if id == 0 then
-		return 0, 1
-	end
+	if vaultType == 1 or vaultType == 3 and id == 0 then return 0,1 end
 	if vaultType == 1 and id >= 15 then -- m+
 		id = 15
 	elseif vaultType == 2 then
-		if not tempILvLstuff[vaultType][id] then return "??", 226 end
-		return tempILvLstuff[vaultType][id], 226
+		if id > 4 then id = 4 end
 	end
 	return tempILvLstuff[vaultType][id], 226
-	
 	--[[ this isn't reliable right now, use hard coded shit
 	if vaultType == 1 then
 		return C_MythicPlus.GetRewardLevelFromKeystoneLevel(id), 226
@@ -1106,6 +1112,12 @@ local function getItemLevelForWeekly(id, vaultType)
 		return id == 14 and 200 or id == 15 and 213 or 226, 226
 	end
 	]]
+end
+local function getPvPVault(progress, threshold)
+	if progress >= threshold then
+		return 1, true
+	end
+	return progress/threshold, false
 end
 local function getDungeonVault(d, threshold)
 	local i = 0
@@ -1163,7 +1175,21 @@ local function getStringForVault(data, vaultType)
 		end
 		return table.concat(t, "/")
 	elseif vaultType == "pvp" then
-		return "??/??/??"
+		local t = {}
+		for i = 1, 3 do
+			local threshold, done = getPvPVault(data.PvP.progress, vaultThresholds[2][i])
+			if not done then
+				if threshold == 0 then
+					t[i] = "-"
+				else
+					t[i] = _sformat("%.0f%%", threshold*100)
+				end
+			else
+				local ilvl, upgraded = getItemLevelForWeekly(data.PvP.level, 2)
+				t[i] = ilvl == upgraded and _sformat("|cff00ff00%s|r", ilvl) or ilvl
+			end
+		end
+		return table.concat(t, "/")
 	end
 	iKS:print(_sformat("ERROR: vault ID %s not found", vaultType))
 	return "??/??/??"
