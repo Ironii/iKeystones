@@ -41,6 +41,15 @@ StaticPopupDialogs["IKS_MIDWEEKFIRSTLOAD"] = {
   button1 = OKAY,
   hideOnEscape = true,
 }
+
+function iKS:ShowTooltip(str)
+	GameTooltip:SetOwner(iKeystonesWindowAnchor, "ANCHOR_NONE")
+	GameTooltip:SetPoint("TOPLEFT", iKeystonesWindowAnchor, "TOPRIGHT", 0, 0)
+	GameTooltip:ClearLines()
+	GameTooltip:SetText(str)
+	GameTooltip:Show()
+end
+
 iKS.keystonesToMapIDs = {
 	--[[
 	[197] = 1456, -- Eye of Azhara
@@ -140,8 +149,8 @@ iKS.affixCycles = {
 	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.QUAKING}, -- Guess
 	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.EXPLOSIVE}, -- Guess
 	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.VOLCANIC}, -- Guess
-	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.NECROTIC}, -- Guess	
-	{affixIDS.FORTIFIED, affixIDS.INSPIRING, affixIDS.STORMING}, -- Guess	
+	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.NECROTIC}, -- Guess
+	{affixIDS.FORTIFIED, affixIDS.INSPIRING, affixIDS.STORMING}, -- Guess
 	{affixIDS.TYRANNICAL, affixIDS.BURSTING, affixIDS.EXPLOSIVE}, -- Guess
 	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.GRIEVOUS}, -- Guess
 	{affixIDS.FORTIFIED, affixIDS.RAGING, affixIDS.QUAKING}, -- Guess
@@ -531,7 +540,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	--iKS:scanCharacterMaps()
 end
-local version = 1.943
+local version = 1.944
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -944,6 +953,7 @@ function iKS:createNewLine()
 	--char -- key -- highest -- ap gain
 	iKS.frames[#iKS.frames+1] = {}
 	local f = iKS.frames[#iKS.frames]
+	local isDataLine = not (#iKS.frames == 1)
 	f.name = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.name:SetSize(100,20)
 	f.name:SetBackdrop(iKS.bd)
@@ -996,6 +1006,13 @@ function iKS:createNewLine()
 	f.dungeon.text:SetText(#iKS.frames == 1 and 'Mythic+' or '')
 	f.dungeon.text:Show()
 
+	if isDataLine then
+		f.dungeon:EnableMouse()
+		f.dungeon.data = ""
+		f.dungeon:SetScript("OnEnter", function() iKS:ShowTooltip(f.dungeon.data)	end)
+		f.dungeon:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	end
+
 	f.raid = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.raid:SetSize(50,20)
 	f.raid:SetBackdrop(iKS.bd)
@@ -1009,6 +1026,13 @@ function iKS:createNewLine()
 	f.raid.text:SetText(#iKS.frames == 1 and 'Raid' or '')
 	f.raid.text:Show()
 
+	if isDataLine then
+		f.raid:EnableMouse()
+		f.raid.data = ""
+		f.raid:SetScript("OnEnter", function() iKS:ShowTooltip(f.raid.data)	end)
+		f.raid:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	end
+
 	f.pvp = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.pvp:SetSize(50,20)
 	f.pvp:SetBackdrop(iKS.bd)
@@ -1021,7 +1045,14 @@ function iKS:createNewLine()
 	f.pvp.text:SetPoint('CENTER', f.pvp, 'CENTER', 0,0)
 	f.pvp.text:SetText(#iKS.frames == 1 and 'PvP' or '')
 	f.pvp.text:Show()
-
+--[[
+	if isDataLine then
+		f.pvp:EnableMouse()
+		f.pvp.data = ""
+		f.pvp:SetScript("OnEnter", function() iKS:ShowTooltip(f.pvp.data)	end)
+		f.pvp:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	end
+--]]
 	f.torghast = CreateFrame('frame', nil , iKS.anchor, BackdropTemplateMixin and "BackdropTemplate")
 	f.torghast:SetSize(50,20)
 	f.torghast:SetBackdrop(iKS.bd)
@@ -1092,7 +1123,7 @@ local tempILvLstuff = {
 	},
 }
 local function getItemLevelForWeekly(id, vaultType)
-	if vaultType == 1 or vaultType == 3 and id == 0 then return 0,1 end
+	if (vaultType == 1 or vaultType == 3) and id == 0 then return 0,1 end
 	if vaultType == 1 and id >= 15 then -- m+
 		id = 15
 	elseif vaultType == 2 then
@@ -1117,35 +1148,50 @@ local function getPvPVault(progress, threshold)
 	if progress >= threshold then
 		return 1, true
 	end
-	return progress/threshold, false
+	return progress/threshold, false, ""
 end
 local function getDungeonVault(d, threshold)
 	local i = 0
+	local str
 	for level, amount in spairs(d, function(t,a,b) return a > b end) do
-		i = i + amount
-		if i >= threshold then
-			return level
+		if i + amount >= threshold then
+			if not str then
+				str = string.format("%s * %s",level, threshold-i)
+			else
+				str = string.format("%s\r%s * %s", str, level, threshold-i)
+			end
+			return level, str
+		else
+			i = i + amount
 		end
+		if not str then
+			str = string.format("%s * %s", level, amount)
+		else
+			str = string.format("%s\r%s * %s", str, level, amount)
+		end
+		
 	end
-	return i/threshold
+	return i/threshold, str or ""
 end
 local function getRaidVault(data, threshold)
-	if not data then return 0 end
 	local mythic = data.mythic or 0
-	if mythic >= threshold then return "mythic" end
 	local heroic = data.heroic or 0
-	if mythic + heroic >= threshold then return "heroic" end
 	local normal = data.normal or 0
-	if mythic + heroic + normal >= threshold then return "normal" end
 	local lfr = data.lfr or 0
-	if mythic + heroic + normal + lfr >= threshold then return "lfr" end
-	return (mythic+heroic+normal+lfr)/threshold
+	if not data then return 0, string.format("0/%s", threshold) end
+	if mythic >= threshold then return "mythic", string.format("Mythic * %s", threshold) end
+	if mythic + heroic >= threshold then return "heroic", string.format("Mythic: %s\rHeroic * %s", mythic, threshold-mythic) end
+	if mythic + heroic + normal >= threshold then return "normal", string.format("Mythic * %s\rHeroic * %s\rNormal * %s", mythic, heroic, threshold-mythic-heroic) end
+	if mythic + heroic + normal + lfr >= threshold then return "lfr", string.format("Mythic * %s\rHeroic * %s\rNormal * %s\rLFR * %s", mythic, heroic, normal, threshold-mythic-heroic-normal) end
+	return (mythic+heroic+normal+lfr)/threshold, string.format("Mythic * %s\rHeroic * %s\rNormal * %s\rLFR * %s", mythic, heroic, normal, lfr)
 end
 local function getStringForVault(data, vaultType)
 	if vaultType == "raid" then
 		local t = {}
+		local t2 = {}
 		for i = 1, 3 do
-			local threshold = getRaidVault(data.raidHistory, vaultThresholds[3][i])
+			local threshold, tooltipData = getRaidVault(data.raidHistory, vaultThresholds[3][i])
+			t2[i] = string.format("Loot %s - %s kills required.\r%s",i,vaultThresholds[3][i], tooltipData)
 			if tonumber(threshold) and threshold < 1 then
 				if threshold == 0 then
 					t[i] = "-"
@@ -1157,11 +1203,13 @@ local function getStringForVault(data, vaultType)
 				t[i] = ilvl == upgraded and _sformat("|cff00ff00%s|r", ilvl) or ilvl
 			end
 		end
-		return table.concat(t, "/")
+		return table.concat(t, "/"), table.concat(t2, "\r\r")
 	elseif vaultType == "dungeon" then
 		local t = {}
+		local t2 = {}
 		for i = 1, 3 do
-			local threshold = getDungeonVault(data.runHistory, vaultThresholds[1][i])
+			local threshold, tooltipData = getDungeonVault(data.runHistory, vaultThresholds[1][i])
+			t2[i] = string.format("Loot %s - %s dungeons required.\r%s",i,vaultThresholds[1][i], tooltipData)
 			if threshold < 1 then
 				if threshold == 0 then
 					t[i] = "-"
@@ -1173,11 +1221,13 @@ local function getStringForVault(data, vaultType)
 				t[i] = ilvl == upgraded and _sformat("|cff00ff00%s|r", ilvl) or ilvl
 			end
 		end
-		return table.concat(t, "/")
+		return table.concat(t, "/"), table.concat(t2, "\r\r")
 	elseif vaultType == "pvp" then
 		local t = {}
+		local t2 = {}
 		for i = 1, 3 do
-			local threshold, done = getPvPVault(data.PvP.progress, vaultThresholds[2][i])
+			local threshold, done, tooltipData = getPvPVault(data.PvP.progress, vaultThresholds[2][i])
+			t2[i] = tooltipData
 			if not done then
 				if threshold == 0 then
 					t[i] = "-"
@@ -1189,7 +1239,7 @@ local function getStringForVault(data, vaultType)
 				t[i] = ilvl == upgraded and _sformat("|cff00ff00%s|r", ilvl) or ilvl
 			end
 		end
-		return table.concat(t, "/")
+		return table.concat(t, "/"), table.concat(t2, "\r\r")
 	end
 	iKS:print(_sformat("ERROR: vault ID %s not found", vaultType))
 	return "??/??/??"
@@ -1349,9 +1399,18 @@ function iKS:createMainWindow()
 			end
 			f.maxCompleted.text:SetText(m == 0 and "-" or m)
 		end
-		f.dungeon.text:SetText(getStringForVault(v, "dungeon"))
-		f.raid.text:SetText(getStringForVault(v, "raid"))
-		f.pvp.text:SetText(getStringForVault(v, "pvp"))
+		local dungeonData, dungeonTooltip = getStringForVault(v, "dungeon")
+		f.dungeon.data = dungeonTooltip
+		f.dungeon.text:SetText(dungeonData)
+		
+		local raidData, raidTooltip = getStringForVault(v, "raid")
+		f.raid.data = raidTooltip
+		f.raid.text:SetText(raidData)
+
+		local pvpData, pvpTooltip = getStringForVault(v, "pvp")
+		f.pvp.data = dungeonTooltip
+		f.pvp.text:SetText(pvpData)
+
 		local torghast
 		do
 			local count = 0
