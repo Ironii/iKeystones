@@ -32,6 +32,7 @@ local shouldBeCorrectInfoForWeekly = false
 local player = UnitGUID('player')
 local unitName = UnitName('player')
 local playerFaction = UnitFactionGroup('player')
+local font 
 
 
 -- popup for loading the first time
@@ -225,10 +226,11 @@ end
 do -- Torghast
 	local questIDs = {
 		{58198, 58199, 58200, 58201, 58202, 58203, 61975, 61976}, -- Coldhearth Insignia
-		{58186, 58187, 58188, 58189, 58190, 58191, 61971, 61972}, -- TODO check zone name
+		{58186, 58187, 58188, 58189, 58190, 58191, 61971, 61972}, -- Fracture Chambers
 		{58205, 58205, 59326, 59334, 59335, 59336, 61977, 61978}, -- Mort'regar
 		{58192, 58193, 58194, 58195, 58196, 58197, 61973, 61974}, -- The Soulforges
 		{59337, 61101, 61131, 61132, 61133, 61134, 61979, 61980}, -- Upper Reaches
+		{59328, 59329, 59330, 59331, 59332, 59333, 61969, 61970}, -- Skoldus Hall
 	}
 	function iKS:checkTorghast()
 		if not iKS:createPlayer() then return end
@@ -257,6 +259,7 @@ function iKS:createPlayer(login)
 				faction = UnitFactionGroup('player'),
 				pvp = {progress = 0, level = 0},
 				torghast = {},
+				runHistory = {},
 			}
 			return true
 		else
@@ -349,8 +352,8 @@ function iKS:scanCharacterMaps()
 			end
 		end
 	end
-	if t[2] and t[2][1] then -- first pvp box
-		iKeystonesDB[player].PvP= {progress = t[2][1].progress, level = t[2][1].level}
+	if t[4] then -- first pvp box
+		iKeystonesDB[player].PvP = {progress = t[4].progress, level = t[2].level}
 	end
 	iKeystonesDB[player].canLoot = C_WeeklyRewards.HasAvailableRewards()
 end
@@ -538,9 +541,9 @@ function addon:PLAYER_LOGIN()
 			iKS.anchor:Hide()
 		end
 	end)
-	--iKS:scanCharacterMaps()
+	iKS:scanCharacterMaps()
 end
-local version = 1.944
+local version = 1.945
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -554,7 +557,7 @@ function addon:ADDON_LOADED(addonName)
 				iKeystonesDB = nil
 				iKeystonesDB = {}
 			end
-			if not iKeystonesConfig.version or iKeystonesConfig.version <= 1940 then
+			if not iKeystonesConfig.version or iKeystonesConfig.version <= 1.940 then
 				for guid,data in pairs(iKeystonesDB) do
 					data.torghast = {}
 				end
@@ -567,8 +570,14 @@ function addon:ADDON_LOADED(addonName)
 					data.activities = nil
 				end
 			end
+			if iKeystonesConfig.version and iKeystonesConfig.version < 1.945 then
+				for guid,data in pairs(iKeystonesDB) do
+					if not data.runHistory then
+						data.runHistory = {}
+					end
+				end
+			end
 			iKeystonesConfig.version = version
-			
 		end
 		if not iKeystonesConfig.ignoreList then
 			iKeystonesConfig.ignoreList = {}
@@ -750,6 +759,9 @@ do
 	function addon:ENCOUNTER_END(encounterID, encounterName, difficultyID, raidSize, kill)
 		if not iKS:createPlayer() then return end
 		if kill == 1 and validEncounters[encounterID] then
+			if not iKeystonesDB[player].raidHistory then -- kill without first initiating history (level up to max and straigth to raid?)
+				iKS:scanCharacterMaps()
+			end
 			local dif = (difficultyID == 17 and "lfr") or (difficultyID == 14 and "normal") or (difficultyID == 15 and "heroic") or (difficultyID == 16 and "mythic") or "unknown"
 			iKeystonesDB[player].raidHistory[dif] = iKeystonesDB[player].raidHistory[dif] and iKeystonesDB[player].raidHistory[dif] + 1 or 1
 		end
