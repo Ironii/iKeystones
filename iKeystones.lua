@@ -257,7 +257,7 @@ function iKS:createPlayer(login)
 				key = {},
 				canLoot = C_WeeklyRewards.HasAvailableRewards(),
 				faction = UnitFactionGroup('player'),
-				pvp = {progress = 0, level = 0},
+				PvP = {progress = 0, level = 0},
 				torghast = {},
 				runHistory = {},
 			}
@@ -543,7 +543,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.945
+local version = 1.946
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -568,6 +568,16 @@ function addon:ADDON_LOADED(addonName)
 					local l = data.activities[2][1].level
 					data.PvP = {progress = p or 0, level = l or 0}
 					data.activities = nil
+				end
+			end
+			if iKeystonesConfig.version and iKeystonesConfig.version < 1.946 then -- remove activities and convert it into .PvP
+				for guid,data in pairs(iKeystonesDB) do
+					if data.pvp then
+						data.pvp = nil
+					end
+					if not data.PvP then
+						data.PvP = {progress = p or 0, level = l or 0}
+					end
 				end
 			end
 			if iKeystonesConfig.version and iKeystonesConfig.version < 1.945 then
