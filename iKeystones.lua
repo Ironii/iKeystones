@@ -24,6 +24,7 @@ addon:RegisterEvent('CHAT_MSG_PARTY')
 addon:RegisterEvent('CHAT_MSG_PARTY_LEADER')
 addon:RegisterEvent('CHALLENGE_MODE_COMPLETED')
 addon:RegisterEvent('ENCOUNTER_END')
+addon:RegisterEvent('WEEKLY_REWARDS_HIDE')
 
 local iKS = {}
 iKS.currentMax = 0
@@ -33,6 +34,7 @@ local player = UnitGUID('player')
 local unitName = UnitName('player')
 local playerFaction = UnitFactionGroup('player')
 local font = GameFontNormal:GetFont()
+local currentMaxLevel = 60
 
 
 -- popup for loading the first time
@@ -249,7 +251,7 @@ do -- Torghast
 end
 function iKS:createPlayer(login)
 	if player and not iKeystonesDB[player] then
-		if UnitLevel('player') >= GetMaxLevelForLatestExpansion() and not iKeystonesConfig.ignoreList[player] then
+		if UnitLevel('player') >= currentMaxLevel and not iKeystonesConfig.ignoreList[player] then
 			iKeystonesDB[player] = {
 				name = UnitName('player'),
 				server = GetRealmName(),
@@ -265,7 +267,7 @@ function iKS:createPlayer(login)
 		else
 			return false
 		end
-	elseif player and UnitLevel('player') < GetMaxLevelForLatestExpansion() and iKeystonesDB[player] then
+	elseif player and UnitLevel('player') < currentMaxLevel and iKeystonesDB[player] then
 		iKeystonesDB[player] = nil
 		return false
 	elseif player and iKeystonesDB[player] then
@@ -355,7 +357,11 @@ function iKS:scanCharacterMaps()
 	if t[4] then -- first pvp box
 		iKeystonesDB[player].PvP = {progress = t[4].progress, level = t[2].level}
 	end
-	iKeystonesDB[player].canLoot = C_WeeklyRewards.HasAvailableRewards()
+	if IsQuestFlaggedCompleted(62079) then -- collecting weekly rewards doesn't proc quest_log_update?
+		iKeystonesDB[player].canLoot = false
+	else
+		iKeystonesDB[player].canLoot = C_WeeklyRewards.HasAvailableRewards()
+	end
 end
 function iKS:scanInventory(requestingSlots, requestingItemLink)
 	if not iKS:createPlayer() then return end
@@ -543,7 +549,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.946
+local version = 1.947
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -640,7 +646,6 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 		iKeystonesDB[player].canLoot = C_WeeklyRewards.HasAvailableRewards()
 	end
 	local affstring = _sformat("1%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
-	--print("affixes:",affstring) -- debug
 	if iKeystonesConfig.affstring ~= affstring then
 		iKeystonesConfig.affstring = affstring
 		iKS:weeklyReset()
@@ -688,6 +693,13 @@ function addon:QUEST_LOG_UPDATE()
 	if IsQuestFlaggedCompleted(62079) then
 		iKeystonesDB[player].canLoot = false
 	end
+end
+function addon:WEEKLY_REWARDS_HIDE()
+	C_Timer.After(1, function()
+		if IsQuestFlaggedCompleted(62079) then
+			iKeystonesDB[player].canLoot = false
+		end
+	end)
 end
 local function ChatHandling(msg, channel)
 	if not msg then return end -- not sure if this can even happen, maybe?
