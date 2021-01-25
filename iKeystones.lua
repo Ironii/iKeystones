@@ -355,7 +355,7 @@ function iKS:scanCharacterMaps()
 		end
 	end
 	if t[4] then -- first pvp box
-		iKeystonesDB[player].PvP = {progress = t[4].progress, level = t[2].level}
+		iKeystonesDB[player].PvP = {progress = t[4].progress, level = t[4].level}
 	end
 	if IsQuestFlaggedCompleted(62079) then -- collecting weekly rewards doesn't proc quest_log_update?
 		iKeystonesDB[player].canLoot = false
@@ -549,7 +549,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.947
+local version = 1.948
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
