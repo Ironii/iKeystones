@@ -3,7 +3,7 @@ local _sformat, GetQuestObjectiveInfo, IsQuestFlaggedCompleted, _sgsub, _sgmatch
 local vaultThresholds = {
 	{1,4,10},
 	{1250,2500,6250},
-	{3,7,10},
+	{3,6,9},
 }
 local addon = CreateFrame('Frame');
 addon:SetScript("OnEvent", function(self, event, ...)
@@ -142,21 +142,21 @@ do
 		EXPLOSIVE = 13,
 		QUAKING = 14,
 		GRIEVOUS = 12,
-		STORMING = 123,
+		STORMING = 124,
 	}
 iKS.affixCycles = {
 	{affixIDS.FORTIFIED, affixIDS.BURSTRING, affixIDS.VOLCANIC}, -- Confirmed
 	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.STORMING}, -- Confirmed
 	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.GRIEVOUS}, -- Confirmed
 	{affixIDS.TYRANNICAL, affixIDS.INSPIRING, affixIDS.NECROTIC}, -- Confirmed
-	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.QUAKING}, -- Guess
-	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.EXPLOSIVE}, -- Guess
-	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.VOLCANIC}, -- Guess
-	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.NECROTIC}, -- Guess
-	{affixIDS.FORTIFIED, affixIDS.INSPIRING, affixIDS.STORMING}, -- Guess
-	{affixIDS.TYRANNICAL, affixIDS.BURSTING, affixIDS.EXPLOSIVE}, -- Guess
-	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.GRIEVOUS}, -- Guess
-	{affixIDS.FORTIFIED, affixIDS.RAGING, affixIDS.QUAKING}, -- Guess
+	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.QUAKING}, -- Confirmed
+	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.EXPLOSIVE}, -- Confirmed
+	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.VOLCANIC}, -- Confirmed
+	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.NECROTIC}, -- Confirmed
+	{affixIDS.FORTIFIED, affixIDS.INSPIRING, affixIDS.STORMING}, -- Confirmed
+	{affixIDS.TYRANNICAL, affixIDS.BURSTING, affixIDS.EXPLOSIVE}, -- Confirmed
+	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.GRIEVOUS}, -- Confirmed
+	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.QUAKING}, -- Confirmed
 }
 end
 --C_MythicPlus.GetLastWeeklyBestInformation();
@@ -251,10 +251,15 @@ do -- Torghast
 end
 function iKS:createPlayer(login)
 	if player and not iKeystonesDB[player] then
+		local realm = GetRealmName()
+		local _r = realm:lower()
+		if _r:match("mythic dungeons") or _r:match("arena champions") then
+			return false
+		end
 		if UnitLevel('player') >= currentMaxLevel and not iKeystonesConfig.ignoreList[player] then
 			iKeystonesDB[player] = {
 				name = UnitName('player'),
-				server = GetRealmName(),
+				server = realm,
 				class = select(2, UnitClass('player')),
 				key = {},
 				canLoot = C_WeeklyRewards.HasAvailableRewards(),
@@ -334,14 +339,16 @@ function iKS:scanCharacterMaps()
 	local t = C_WeeklyRewards.GetActivities() -- for pvp
 	if not t then print("Error: Activities not found") return end
 	if isFirstLogin then
-		for k,v in pairs(t[3]) do
-			local dif = (v.level == 17 and "lfr") or (v.level == 14 and "normal") or (v.level == 15 and "heroic") or (v.level == 16 and "mythic") or "unknown"
-			if v.progress >= v.threshold then
-				if not iKeystonesDB[player].raidHistory[dif] or iKeystonesDB[player].raidHistory[dif] < v.threshold then
-					iKeystonesDB[player].raidHistory[dif] = v.threshold
+		if t[3] then -- apparently sometimes data isn't loaded fast enough, cba to try catching it since it's only the first reset which will be messy anyway
+			for k,v in pairs(t[3]) do
+				local dif = (v.level == 17 and "lfr") or (v.level == 14 and "normal") or (v.level == 15 and "heroic") or (v.level == 16 and "mythic") or "unknown"
+				if v.progress >= v.threshold then
+					if not iKeystonesDB[player].raidHistory[dif] or iKeystonesDB[player].raidHistory[dif] < v.threshold then
+						iKeystonesDB[player].raidHistory[dif] = v.threshold
+					end
+				elseif v.progress > 0 then
+					iKeystonesDB[player].raidHistory[dif] = v.progress
 				end
-			elseif v.progress > 0 then
-				iKeystonesDB[player].raidHistory[dif] = v.progress
 			end
 		end
 	end
@@ -549,7 +556,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.948
+local version = 1.949
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -562,6 +569,18 @@ function addon:ADDON_LOADED(addonName)
 			if iKeystonesConfig.version and iKeystonesConfig.version < 1.930 then -- reset data for new expansion (db doesn't have level data)
 				iKeystonesDB = nil
 				iKeystonesDB = {}
+			end
+			if iKeystonesConfig.version and iKeystonesConfig.version < 1.949 then -- remove tournament realms
+				local guidsToDelete = {}
+				for guid,data in pairs(iKeystonesDB) do
+					local server = data.server:lower()
+					if server:match("mythic dungeons") or server:match("arena champions") then
+						guidsToDelete[guid] = true
+					end
+				end
+				for k,v in pairs(guidsToDelete) do
+					iKeystonesDB[k] = nil
+				end
 			end
 			if not iKeystonesConfig.version or iKeystonesConfig.version <= 1.940 then
 				for guid,data in pairs(iKeystonesDB) do
@@ -688,14 +707,14 @@ function addon:WEEKLY_REWARDS_UPDATE()
 	iKS:scanCharacterMaps()
 end
 function addon:QUEST_LOG_UPDATE()
-	if not iKeystonesDB[player] then return end
+	if not iKS:createPlayer() then return end
 	iKS:checkTorghast()
 	if IsQuestFlaggedCompleted(62079) then
 		iKeystonesDB[player].canLoot = false
 	end
 end
 function addon:WEEKLY_REWARDS_HIDE()
-	C_Timer.After(1, function()
+	C_Timer.After(3, function()
 		if IsQuestFlaggedCompleted(62079) then
 			iKeystonesDB[player].canLoot = false
 		end
@@ -784,8 +803,15 @@ do
 			if not iKeystonesDB[player].raidHistory then -- kill without first initiating history (level up to max and straigth to raid?)
 				iKS:scanCharacterMaps()
 			end
-			local dif = (difficultyID == 17 and "lfr") or (difficultyID == 14 and "normal") or (difficultyID == 15 and "heroic") or (difficultyID == 16 and "mythic") or "unknown"
-			iKeystonesDB[player].raidHistory[dif] = iKeystonesDB[player].raidHistory[dif] and iKeystonesDB[player].raidHistory[dif] + 1 or 1
+			if iKeystonesDB[player].raidHistory[difficultyID] then
+				iKeystonesDB[player].raidHistory[difficultyID] = {}
+			end
+			-- Track kill history, afaik killing boss multiple times on same difficulty doesn't count toward the vault, start using only this table on 9.1
+			if not iKeystonesDB[player].raidHistory[difficultyID][encounterID] then
+				iKeystonesDB[player].raidHistory[difficultyID] = true
+				local dif = (difficultyID == 17 and "lfr") or (difficultyID == 14 and "normal") or (difficultyID == 15 and "heroic") or (difficultyID == 16 and "mythic") or "unknown"
+				iKeystonesDB[player].raidHistory[dif] = iKeystonesDB[player].raidHistory[dif] and iKeystonesDB[player].raidHistory[dif] + 1 or 1
+			end
 		end
 	end
 end
@@ -1664,7 +1690,7 @@ function iKS:updateGuildKeys(_min,_max,_map)
 			local empty = true
 			for _, data in spairs(d.chars, function(t,a,b) return t[b].level < t[a].level end) do
 				if iKS:shouldReportKey(data.level, exactLevel, _min, _max) then
-					if not _map or (_map and data.map == _map) then
+					if not _map or (_map and data.map and tonumber(data.map) == _map) then
 						empty = false
 						local mapName = C_ChallengeMode.GetMapUIInfo(data.map)
 						iKS.guildKeys:AddMessage(_sformat("    |c%s%s|r - %s%s|r %s", RAID_CLASS_COLORS[data.class].colorStr, data.name,iKS:getItemColor(data.level), data.level, mapName))

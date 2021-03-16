@@ -1,8 +1,8 @@
-## Interface: 90002
+## Interface: 90005
 ## Title: iKeystones
 ## Notes: Tracks your keystones
 ## Author: Ironi
-## Version: 1.948
+## Version: 1.949
 ## DefaultState: enabled
 
 ## SavedVariables: iKeystonesDB, iKeystonesConfig
