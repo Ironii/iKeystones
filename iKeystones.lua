@@ -556,7 +556,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.949
+local version = 1.9491
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -803,12 +803,14 @@ do
 			if not iKeystonesDB[player].raidHistory then -- kill without first initiating history (level up to max and straigth to raid?)
 				iKS:scanCharacterMaps()
 			end
-			if iKeystonesDB[player].raidHistory[difficultyID] then
+			if iKeystonesDB[player].raidHistory[difficultyID] and type(iKeystonesDB[player].raidHistory[difficultyID]) == "bool" then -- fix for earlier typo, remove in 9.1
+				iKeystonesDB[player].raidHistory[difficultyID] = {}
+			elseif not iKeystonesDB[player].raidHistory[difficultyID] then
 				iKeystonesDB[player].raidHistory[difficultyID] = {}
 			end
 			-- Track kill history, afaik killing boss multiple times on same difficulty doesn't count toward the vault, start using only this table on 9.1
 			if not iKeystonesDB[player].raidHistory[difficultyID][encounterID] then
-				iKeystonesDB[player].raidHistory[difficultyID] = true
+				iKeystonesDB[player].raidHistory[difficultyID][encounterID] = true
 				local dif = (difficultyID == 17 and "lfr") or (difficultyID == 14 and "normal") or (difficultyID == 15 and "heroic") or (difficultyID == 16 and "mythic") or "unknown"
 				iKeystonesDB[player].raidHistory[dif] = iKeystonesDB[player].raidHistory[dif] and iKeystonesDB[player].raidHistory[dif] + 1 or 1
 			end
