@@ -201,7 +201,9 @@ function iKS:weeklyReset()
 		if not data.canLoot and data.raidHistory then
 			local c = 0
 			for k,v in pairs(data.raidHistory) do
-				c = c + v
+				if not tonumber(k) then -- ignore difids for now, change in 9.1
+					c = c + v
+				end
 			end
 			if c >= vaultThresholds[3][1] then
 				data.canLoot = true
@@ -556,7 +558,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.9491
+local version = 1.9492
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
