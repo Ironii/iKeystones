@@ -558,7 +558,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.9492
+local version = 1.95
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -1586,6 +1586,10 @@ function addon:CHAT_MSG_ADDON(prefix,msg,chatType,sender)
 		end
 	end
 end
+local gkeysFilters = {
+	minLevel = false,
+	dungeon = false,
+}
 function iKS:showGuildKeys()
 	if iKS.guildKeys and iKS.guildKeys:IsShown() then
 		iKS.guildKeys:Hide()
@@ -1600,12 +1604,12 @@ function iKS:showGuildKeys()
 		iKS.guildKeys:SetBackdropBorderColor(0,0,0,1)
 		if iKeystonesConfig.windowPos == 1 then -- Screen one
 			local width = math.floor(UIParent:GetWidth()/4)
-			iKS.guildKeys:SetPoint('TOP', UIParent, 'TOP', -width+1,-50)
+			iKS.guildKeys:SetPoint('TOP', UIParent, 'TOP', -width+1,-75)
 		elseif iKeystonesConfig.windowPos == 2 then -- Screen two
 			local width = math.floor(UIParent:GetWidth()/4)
-			iKS.guildKeys:SetPoint('TOP', UIParent, 'TOP', width,-50)
+			iKS.guildKeys:SetPoint('TOP', UIParent, 'TOP', width,-75)
 		else
-			iKS.guildKeys:SetPoint('TOP', UIParent, 'TOP', 0,-50)
+			iKS.guildKeys:SetPoint('TOP', UIParent, 'TOP', 0,-75)
 		end
 		iKS.guildKeys:SetFont(font, 13)
 		iKS.guildKeys:SetFading(false)
@@ -1640,13 +1644,88 @@ function iKS:showGuildKeys()
 		iKS.guildKeys:SetFrameStrata('HIGH')
 		iKS.guildKeys:SetFrameLevel(2)
 		iKS.guildKeys:EnableMouse(true)
+
+		-- Filtering GUI
+	
+		iKS.filteringBG = CreateFrame('frame', nil , iKS.guildKeys, "BackdropTemplate")
+		iKS.filteringBG:SetSize(500,20)
+		iKS.filteringBG:SetBackdrop(iKS.bd)
+		iKS.filteringBG:SetBackdropColor(.1,.1,.1,.9)
+		iKS.filteringBG:SetBackdropBorderColor(0,0,0,1)
+		iKS.filteringBG:SetPoint('bottom', iKS.guildKeys, 'top', 0,1)
+
+		iKS.filteringMinLvLText = iKS.filteringBG:CreateFontString()
+		iKS.filteringMinLvLText:SetFont(font, 12, 'OUTLINE')
+		iKS.filteringMinLvLText:SetPoint('left', iKS.filteringBG, 'left', 50,0)
+		iKS.filteringMinLvLText:SetText('Min key level')
+
+		iKS.filteringMinLvL = CreateFrame("EditBox", nil, iKS.filteringBG, "BackdropTemplate")
+		iKS.filteringMinLvL:SetBackdrop(iKS.bd)
+		iKS.filteringMinLvL:SetBackdropColor(.1,.1,.1,.8)
+		iKS.filteringMinLvL:SetBackdropBorderColor(1,0,0,1)
+		iKS.filteringMinLvL:SetScript("OnTextChanged", function(self)
+			local lvl = self:GetNumber()
+			gkeysFilters.minLevel = lvl > 0 and lvl or false
+			iKS:updateGuildKeys(true)
+		end)
+		iKS.filteringMinLvL:SetScript('OnEnterPressed', function()
+			iKS.filteringMinLvL:ClearFocus()
+		end)
+		--]]
+		iKS.filteringMinLvL:SetWidth(30)
+		iKS.filteringMinLvL:SetHeight(18)
+		iKS.filteringMinLvL:SetTextInsets(2, 2, 1, 0)
+		iKS.filteringMinLvL:SetPoint('left', iKS.filteringMinLvLText, 'right', 5,0)
+		iKS.filteringMinLvL:SetText("")
+		iKS.filteringMinLvL:SetFont(font, 12)
+		iKS.filteringMinLvL:SetAutoFocus(false)
+		iKS.filteringMinLvL:SetNumeric(true)
+		iKS.filteringMinLvL:SetMaxLetters(2)
+
+		iKS.guildKeysChooseDungeon = CreateFrame('frame', nil , iKS.filteringBG, "BackdropTemplate")
+		iKS.guildKeysChooseDungeon:SetSize(200,18)
+		iKS.guildKeysChooseDungeon:SetFrameStrata("HIGH")
+		iKS.guildKeysChooseDungeon:SetBackdrop(iKS.bd)
+		iKS.guildKeysChooseDungeon:SetBackdropColor(.1,.1,.1,.9)
+		iKS.guildKeysChooseDungeon:SetBackdropBorderColor(1,0,0,1)
+		iKS.guildKeysChooseDungeon:SetPoint('right', iKS.filteringBG, 'right', -50,0)
+		iKS.guildKeysChooseDungeon:EnableMouse(true)
+		iKS.guildKeysChooseDungeon.text = iKS.guildKeysChooseDungeon:CreateFontString()
+		iKS.guildKeysChooseDungeon.text:SetFont(font, 12, 'OUTLINE')
+		iKS.guildKeysChooseDungeon.text:SetPoint('center', iKS.guildKeysChooseDungeon, 'center', 0,0)
+		iKS.guildKeysChooseDungeon.text:SetText('Dungeon')
+		iKS.guildKeysChooseDungeonMenuFrame = CreateFrame('Frame', 'IKSguildKeysChooseDungeonMenuFrame', UIParent, 'UIDropDownMenuTemplate')
+		local dungeonMenuList = {{text = "Any", keepShownOnClick = false, notCheckable = true, func = function() 
+			gkeysFilters.dungeon = false
+			iKS.guildKeysChooseDungeon.text:SetText("Dungeon")
+			iKS:updateGuildKeys(true)
+		end}}
+		do
+			local t = C_ChallengeMode.GetMapTable()
+			for k,v in pairs(t) do
+				local n = C_ChallengeMode.GetMapUIInfo(v)
+				tinsert(dungeonMenuList, {
+					text = n,
+					keepShownOnClick = false,
+					notCheckable = true,
+					func = function() 
+						gkeysFilters.dungeon = v
+						iKS.guildKeysChooseDungeon.text:SetText(n)
+						iKS:updateGuildKeys(true)
+					end})
+			end
+		end
+		iKS.guildKeysChooseDungeon:SetScript("OnMouseDown", function() 
+				EasyMenu(dungeonMenuList, iKS.guildKeysChooseDungeonMenuFrame, iKS.guildKeysChooseDungeon, 0 , 0, 'MENU')
+		end)
+
 		--Title
 		iKS.guildKeysTitle = CreateFrame('frame', nil , iKS.guildKeys, BackdropTemplateMixin and "BackdropTemplate")
 		iKS.guildKeysTitle:SetSize(500,20)
 		iKS.guildKeysTitle:SetBackdrop(iKS.bd)
 		iKS.guildKeysTitle:SetBackdropColor(.1,.1,.1,.9)
 		iKS.guildKeysTitle:SetBackdropBorderColor(0,0,0,1)
-		iKS.guildKeysTitle:SetPoint('bottom', iKS.guildKeys, 'top', 0,1)
+		iKS.guildKeysTitle:SetPoint('bottom', iKS.filteringBG, 'top', 0,1)
 
 		iKS.guildKeysTitle.text = iKS.guildKeysTitle:CreateFontString()
 		iKS.guildKeysTitle.text:SetFont(font, 14, 'OUTLINE')
@@ -1667,6 +1746,7 @@ function iKS:showGuildKeys()
 		iKS.guildKeysTitle.exit.text:SetFont(font, 14, 'OUTLINE')
 		iKS.guildKeysTitle.exit.text:SetPoint('center', iKS.guildKeysTitle.exit, 'center', 0,0)
 		iKS.guildKeysTitle.exit.text:SetText('x')
+
 		--Loading
 		iKS.guildKeysLoadingText = iKS.guildKeysTitle:CreateFontString()
 		iKS.guildKeysLoadingText:SetFont(font, 18, 'OUTLINE')
@@ -1680,10 +1760,18 @@ function iKS:showGuildKeys()
 		iKS.guildKeys:Show()
 	end
 end
-function iKS:updateGuildKeys(_min,_max,_map)
-	iKS.waitingForReplies = false
-	iKS.guildKeysLoadingText:Hide()
-	local exactLevel = (_min and _max and _min == _max and _min) or false
+function iKS:updateGuildKeys(localUpdate)
+	if not localUpdate then
+		iKS.waitingForReplies = false
+		iKS.guildKeysLoadingText:Hide()
+	else
+		iKS.guildKeys:Clear()
+	end
+	local _mapName
+	if gkeysFilters.dungeon then 
+		_mapName = C_ChallengeMode.GetMapUIInfo(gkeysFilters.dungeon)
+	end
+	local maps = {}
 	for sender,d in spairs(iKS.guildKeysList) do
 		sender = sender:gsub("-(.*)", "")
 		sender =  iCN_GetName and iCN_GetName(sender) or sender
@@ -1693,31 +1781,27 @@ function iKS:updateGuildKeys(_min,_max,_map)
 		else
 			local empty = true
 			for _, data in spairs(d.chars, function(t,a,b) return t[b].level < t[a].level end) do
-				if iKS:shouldReportKey(data.level, exactLevel, _min, _max) then
-					if not _map or (_map and data.map and tonumber(data.map) == _map) then
+				if (not gkeysFilters.minLevel or (gkeysFilters.minLevel and data.level >= gkeysFilters.minLevel)) and (not gkeysFilters.dungeon or gkeysFilters.dungeon == tonumber(data.map)) then
+				--if iKS:shouldReportKey(data.level, exactLevel, _min, _max) then
+					--if not _map or (_map and data.map and tonumber(data.map) == _map) then
 						empty = false
 						local mapName = C_ChallengeMode.GetMapUIInfo(data.map)
 						iKS.guildKeys:AddMessage(_sformat("    |c%s%s|r - %s%s|r %s", RAID_CLASS_COLORS[data.class].colorStr, data.name,iKS:getItemColor(data.level), data.level, mapName))
-					end
+					--end
 				end
 			end
 			if empty then
-				if exactLevel then
-					iKS.guildKeys:AddMessage("    No keystones at " .. exactLevel)
-				elseif _min and not _max then
-					iKS.guildKeys:AddMessage("    No keystones at or above " .. _min)
-				elseif _min and _max then
-					iKS.guildKeys:AddMessage("    No keystones between ".._min.." and ".._max)
-				elseif _map then
-					local n = C_ChallengeMode.GetMapUIInfo(_map)
-					iKS.guildKeys:AddMessage("    No keystones for "..n)
+				if gkeysFilters.minLevel and gkeysFilters.dungeon then
+					iKS.guildKeys:AddMessage("    No keystones at or above " .. gkeysFilters.minLevel .. " for " .. _mapName)
+				elseif gkeysFilters.minLevel then
+					iKS.guildKeys:AddMessage("    No keystones at or above " .. gkeysFilters.minLevel)
+				elseif gkeysFilters.dungeon then
+					iKS.guildKeys:AddMessage("    No keystones for ".. _mapName)
 				end
 			end
 		end
 		iKS.guildKeys:AddMessage("----------")
 	end
-	iKS.guildKeysList = nil
-	iKS.guildKeysList = {}
 end
 local function gameTooltipScanning(self)
 	local itemName, itemLink = self:GetItem()
@@ -1814,31 +1898,10 @@ SlashCmdList["IKEYSTONES"] = function(msg)
 				iKS.guildKeysList = {}
 				local hide = iKS:showGuildKeys()
 				if hide then return end
-				local _min, _max, _map = false, false, false
-				if not (msg == "g" or msg == "guild") then
-					if msg:find('^g s') then
-						local mapID = msg:match('^g s (%d*)')
-						_map = tonumber(mapID)
-					else
-						if msg:match('^g (%d*)%+$') then -- .allkeys x+
-							local level = msg:match('^g (%d*)%+$')
-							_min = tonumber(level)
-						elseif msg:match('^g (%d*)%-(%d*)$') then -- .allkeys x-y
-							local minlevel, maxlevel = msg:match('^g (%d*)%-(%d*)$')
-							_min = tonumber(minlevel)
-							_max = tonumber(maxlevel)
-						elseif msg:match('^g (%d*)') then -- .allkeys 15
-							local level = msg:match('^g (%d*)')
-							_min = tonumber(level)
-							_max = _min
-						end
-					end	
-				end
 				iKS.waitingForReplies = true
 				_SendAddonMessage("iKeystones", "keyCheck", "GUILD")
-				--_SendAddonMessage("AstralKeys", "request", "GUILD") -- AstralKeys support
-				C_Timer.After(2, function() iKS:updateGuildKeys(_min, _max, _map) end)
-			end		
+				C_Timer.After(2, function() iKS:updateGuildKeys() end)
+			end
 		elseif msg == "list" or msg == "l" then
 			local t = C_ChallengeMode.GetMapTable()
 			for k,v in pairs(t) do
