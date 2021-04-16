@@ -270,6 +270,7 @@ function iKS:createPlayer(login)
 				torghast = {},
 				runHistory = {},
 			}
+			iKS:scanCharacterMaps(true)
 			return true
 		else
 			return false
@@ -307,8 +308,8 @@ local function IsValidDungeon(dungeonID)
 	end
 	return validDungeons[dungeonID]
 end
-function iKS:scanCharacterMaps()
-	if not iKS:createPlayer() then return end
+function iKS:scanCharacterMaps(newChar)
+	if not newChar and not iKS:createPlayer() then return end
 	--[[
 	local maps = C_ChallengeMode.GetMapTable()
 	local maxCompleted = 0
@@ -333,7 +334,7 @@ function iKS:scanCharacterMaps()
 	
 	-- type: 1 m+, 2 pvp, 3 raid
 	local isFirstLogin = false
-	if not iKeystonesDB[player].raidHistory then
+	if not iKeystonesDB[player].raidHistory or newChar then
 		iKeystonesDB[player].raidHistory = {}
 		isFirstLogin = true
 		StaticPopup_Show("IKS_MIDWEEKFIRSTLOAD")
@@ -558,7 +559,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.95
+local version = 1.951
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -1451,7 +1452,7 @@ function iKS:createMainWindow()
 		if v.server == GetRealmName() then
 			f.name.text:SetText(_sformat('%s|c%s%s\124r', (v.canLoot and treasures.pve or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name))
 		else
-			f.name.text:SetText(_sformat('%s|c%s%s\124r - %s',(v.canLoot and treasure.pve or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name, v.server))
+			f.name.text:SetText(_sformat('%s|c%s%s\124r - %s',(v.canLoot and treasures.pve or ''),RAID_CLASS_COLORS[v.class].colorStr, v.name, v.server))
 		end
 		f.key.text:SetText(v.key.level and _sformat('%s%s (%s)|r', iKS:getItemColor(v.key.level), iKS:getZoneInfo(v.key.map), v.key.level) or '-')
 		do
