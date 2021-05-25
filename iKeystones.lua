@@ -145,7 +145,7 @@ do
 		STORMING = 124,
 	}
 iKS.affixCycles = {
-	{affixIDS.FORTIFIED, affixIDS.BURSTRING, affixIDS.VOLCANIC}, -- Confirmed
+	{affixIDS.FORTIFIED, affixIDS.BURSTING, affixIDS.VOLCANIC}, -- Confirmed
 	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.STORMING}, -- Confirmed
 	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.GRIEVOUS}, -- Confirmed
 	{affixIDS.TYRANNICAL, affixIDS.INSPIRING, affixIDS.NECROTIC}, -- Confirmed
@@ -344,6 +344,7 @@ function iKS:scanCharacterMaps(newChar)
 	if isFirstLogin then
 		if t[3] then -- apparently sometimes data isn't loaded fast enough, cba to try catching it since it's only the first reset which will be messy anyway
 			for k,v in pairs(t[3]) do
+				if type(v) ~= "table" then break end -- hopefully fixes problems when reaching L60
 				local dif = (v.level == 17 and "lfr") or (v.level == 14 and "normal") or (v.level == 15 and "heroic") or (v.level == 16 and "mythic") or "unknown"
 				if v.progress >= v.threshold then
 					if not iKeystonesDB[player].raidHistory[dif] or iKeystonesDB[player].raidHistory[dif] < v.threshold then
@@ -559,7 +560,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.951
+local version = 1.952
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
