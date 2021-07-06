@@ -233,8 +233,8 @@ do -- Torghast
 		{58186, 58187, 58188, 58189, 58190, 58191, 61971, 61972}, -- Fracture Chambers
 		{58205, 58205, 59326, 59334, 59335, 59336, 61977, 61978}, -- Mort'regar
 		{58192, 58193, 58194, 58195, 58196, 58197, 61973, 61974}, -- The Soulforges
-		{59337, 61101, 61131, 61132, 61133, 61134, 61979, 61980}, -- Upper Reaches
-		{59328, 59329, 59330, 59331, 59332, 59333, 61969, 61970}, -- Skoldus Hall
+		{59337, 61101, 61131, 61132, 61133, 61134, 61979, 61980, 63888}, -- Upper Reaches
+		{59328, 59329, 59330, 59331, 59332, 59333, 61969, 61970, 63868}, -- Skoldus Hall
 	}
 	function iKS:checkTorghast()
 		if not iKS:createPlayer() then return end
@@ -560,7 +560,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.952
+local version = 1.953
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -790,6 +790,7 @@ function addon:CHAT_MSG_RAID_LEADER(msg)
 end
 do
 	local validEncounters = {
+		--[[ i don't think we need these anymore
 		[2405] = true, -- Artificer Xy'mox
 		[2383] = true, -- Hungering Destoyer
 		[2418] = true, -- Huntsman Altimor
@@ -800,6 +801,16 @@ do
 		[2417] = true, -- Stone Legion Generals
 		[2402] = true, -- Sun King's Salvation
 		[2412] = true, -- The Council of Blood
+		--]]
+		[2423] = true, -- The Tarragrue
+		[2433] = true, -- The Eye of the Jailer
+		[2429] = true, -- The Nine
+		[2432] = true, -- Remnant of Ner'zhul
+		[2430] = true, -- Soulrender Dormazain
+		[2436] = true, -- Guardian of the First Ones
+		[2431] = true, -- Fatescribe Roh-Kalo
+		[2422] = true, -- Kel'Thuzad
+		[2435] = true, -- Sylvanas Windrunner
 	}
 	function addon:ENCOUNTER_END(encounterID, encounterName, difficultyID, raidSize, kill)
 		if not iKS:createPlayer() then return end
@@ -807,16 +818,12 @@ do
 			if not iKeystonesDB[player].raidHistory then -- kill without first initiating history (level up to max and straigth to raid?)
 				iKS:scanCharacterMaps()
 			end
-			if iKeystonesDB[player].raidHistory[difficultyID] and type(iKeystonesDB[player].raidHistory[difficultyID]) == "bool" then -- fix for earlier typo, remove in 9.1
-				iKeystonesDB[player].raidHistory[difficultyID] = {}
-			elseif not iKeystonesDB[player].raidHistory[difficultyID] then
+			if not iKeystonesDB[player].raidHistory[difficultyID] then
 				iKeystonesDB[player].raidHistory[difficultyID] = {}
 			end
-			-- Track kill history, afaik killing boss multiple times on same difficulty doesn't count toward the vault, start using only this table on 9.1
+			-- Track kill history, afaik killing boss multiple times on same difficulty doesn't count toward the vault
 			if not iKeystonesDB[player].raidHistory[difficultyID][encounterID] then
 				iKeystonesDB[player].raidHistory[difficultyID][encounterID] = true
-				local dif = (difficultyID == 17 and "lfr") or (difficultyID == 14 and "normal") or (difficultyID == 15 and "heroic") or (difficultyID == 16 and "mythic") or "unknown"
-				iKeystonesDB[player].raidHistory[dif] = iKeystonesDB[player].raidHistory[dif] and iKeystonesDB[player].raidHistory[dif] + 1 or 1
 			end
 		end
 	end
@@ -1159,33 +1166,33 @@ local treasures = {
 local tempILvLstuff = {
 	{ -- M+
 		0,
-		200, -- 2
-		203, -- 3
-		207, -- 4
-		210, -- 5
-		210, -- 6
-		213, -- 7
-		216, -- 8
-		216, -- 9
-		220, -- 10
-		220, -- 11
-		223, -- 12
-		223, -- 13
-		226, -- 14
-		226, -- 15
+		226, -- 2
+		226, -- 3
+		226, -- 4
+		229, -- 5
+		229, -- 6
+		233, -- 7
+		236, -- 8
+		236, -- 9
+		239, -- 10
+		242, -- 11
+		246, -- 12
+		246, -- 13
+		249, -- 14
+		252, -- 15
 	},
 	{ -- PvP
-		[0] = 200, -- Unranked
-		[1] = 207, -- 1400-1599
-		[2] = 213, -- 1600-1799
-		[3] = 220, -- 1800-2099
-		[4] = 226, -- 2100+
+		[0] = 220, -- Unranked
+		[1] = 226, -- 1400-1599
+		[2] = 233, -- 1600-1799
+		[3] = 240, -- 1800-2099
+		[4] = 246, -- 2100+
 	},
 	{ -- Raid
-		lfr = 193,
-		normal = 200,
-		heroic = 213,
-		mythic = 226,
+		lfr = 213,
+		normal = 226,
+		heroic = 239,
+		mythic = 252,
 	},
 }
 local function getItemLevelForWeekly(id, vaultType)
@@ -1239,11 +1246,20 @@ local function getDungeonVault(d, threshold)
 	end
 	return i/threshold, str or ""
 end
+local function count(t)
+	if not t then return 0 end
+	local i = 0
+	for k,v in pairs(t) do
+		if v then i = i + 1 end
+	end
+	return i
+end
 local function getRaidVault(data, threshold)
-	local mythic = data.mythic or 0
-	local heroic = data.heroic or 0
-	local normal = data.normal or 0
-	local lfr = data.lfr or 0
+	if not data then return 0, string.format("0/%s", threshold) end
+	local mythic = count(data[16])
+	local heroic = count(data[15])
+	local normal = count(data[14])
+	local lfr = count(data[17])
 	if not data then return 0, string.format("0/%s", threshold) end
 	if mythic >= threshold then return "mythic", string.format("Mythic * %s", threshold) end
 	if mythic + heroic >= threshold then return "heroic", string.format("Mythic: %s\rHeroic * %s", mythic, threshold-mythic) end
@@ -1481,7 +1497,7 @@ function iKS:createMainWindow()
 		do
 			local count = 0
 			for _,_v in spairs(v.torghast) do
-				if _v == 8 then
+				if _v == 9 then
 					if not torghast then
 						torghast = _sformat("|cff00ff00%s|r", _v)
 					else
