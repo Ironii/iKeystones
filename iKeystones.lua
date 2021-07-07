@@ -119,11 +119,12 @@ local sortedAffixes = {
 	[124] = 3, -- Storming
 
 	--[15] = ?, --Relentless
-	[16] = 4, --Infested, S1
-	[117] = 4, --Reaping, S2
-	[119] = 4, -- Beguiling, S3
-	[120] = 4, -- Awekened, S4
-	[121] = 4, -- Prideful, S5
+	[16] = 4, --Infested, BFA S1
+	[117] = 4, --Reaping, BFA S2
+	[119] = 4, -- Beguiling, BFA S3
+	[120] = 4, -- Awekened, BFA S4
+	[121] = 4, -- Prideful, SL S1
+	[128] = 4, -- Tormented SL S2
 }
 do
 	local affixIDS = {
@@ -560,7 +561,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.953
+local version = 1.954
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -668,7 +669,7 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	if iKeystonesDB[player] then
 		iKeystonesDB[player].canLoot = C_WeeklyRewards.HasAvailableRewards()
 	end
-	local affstring = _sformat("1%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
+	local affstring = _sformat("%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
 	if iKeystonesConfig.affstring ~= affstring then
 		iKeystonesConfig.affstring = affstring
 		iKS:weeklyReset()
