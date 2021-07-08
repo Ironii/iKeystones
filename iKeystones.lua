@@ -231,8 +231,8 @@ end
 do -- Torghast
 	local questIDs = {
 		{58198, 58199, 58200, 58201, 58202, 58203, 61975, 61976}, -- Coldhearth Insignia
-		{58186, 58187, 58188, 58189, 58190, 58191, 61971, 61972}, -- Fracture Chambers
-		{58205, 58205, 59326, 59334, 59335, 59336, 61977, 61978}, -- Mort'regar
+		{58186, 58187, 58188, 58189, 58190, 58191, 61971, 61972, 63872, 63873}, -- Fracture Chambers
+		{58205, 58205, 59326, 59334, 59335, 59336, 61977, 61978, 63884, 63885}, -- Mort'regar
 		{58192, 58193, 58194, 58195, 58196, 58197, 61973, 61974}, -- The Soulforges
 		{59337, 61101, 61131, 61132, 61133, 61134, 61979, 61980, 63888}, -- Upper Reaches
 		{59328, 59329, 59330, 59331, 59332, 59333, 61969, 61970, 63868}, -- Skoldus Hall
@@ -561,7 +561,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.954
+local version = 1.955
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -1498,7 +1498,7 @@ function iKS:createMainWindow()
 		do
 			local count = 0
 			for _,_v in spairs(v.torghast) do
-				if _v == 9 then
+				if _v >= 10 then -- TODO: INCREASE EACH WEEK
 					if not torghast then
 						torghast = _sformat("|cff00ff00%s|r", _v)
 					else
