@@ -1203,7 +1203,7 @@ local function getItemLevelForWeekly(id, vaultType)
 	elseif vaultType == 2 then
 		if id > 4 then id = 4 end
 	end
-	return tempILvLstuff[vaultType][id], 226
+	return tempILvLstuff[vaultType][id], 252
 	--[[ this isn't reliable right now, use hard coded shit
 	if vaultType == 1 then
 		return C_MythicPlus.GetRewardLevelFromKeystoneLevel(id), 226
