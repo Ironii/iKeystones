@@ -230,11 +230,11 @@ function iKS:weeklyReset()
 end
 do -- Torghast
 	local questIDs = {
-		{58198, 58199, 58200, 58201, 58202, 58203, 61975, 61976}, -- Coldhearth Insignia
+		{58198, 58199, 58200, 58201, 58202, 58203, 61975, 61976, 63880, 63881, 63882}, -- Coldhearth Insignia
 		{58186, 58187, 58188, 58189, 58190, 58191, 61971, 61972, 63872, 63873}, -- Fracture Chambers
 		{58205, 58205, 59326, 59334, 59335, 59336, 61977, 61978, 63884, 63885}, -- Mort'regar
 		{58192, 58193, 58194, 58195, 58196, 58197, 61973, 61974}, -- The Soulforges
-		{59337, 61101, 61131, 61132, 61133, 61134, 61979, 61980, 63888}, -- Upper Reaches
+		{59337, 61101, 61131, 61132, 61133, 61134, 61979, 61980, 63888, 63889, 63890}, -- Upper Reaches
 		{59328, 59329, 59330, 59331, 59332, 59333, 61969, 61970, 63868}, -- Skoldus Hall
 	}
 	function iKS:checkTorghast()
@@ -561,7 +561,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.955
+local version = 1.956
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -807,7 +807,8 @@ do
 		[2433] = true, -- The Eye of the Jailer
 		[2429] = true, -- The Nine
 		[2432] = true, -- Remnant of Ner'zhul
-		[2430] = true, -- Soulrender Dormazain
+		[2430] = true, -- Painsmith Raznal
+		[2434] = true, -- Soulrender Dormazain
 		[2436] = true, -- Guardian of the First Ones
 		[2431] = true, -- Fatescribe Roh-Kalo
 		[2422] = true, -- Kel'Thuzad
