@@ -201,9 +201,9 @@ function iKS:weeklyReset()
 		end
 		if not data.canLoot and data.raidHistory then
 			local c = 0
-			for k,v in pairs(data.raidHistory) do
-				if not tonumber(k) then -- ignore difids for now, change in 9.1
-					c = c + v
+			for difID,v in pairs(data.raidHistory) do
+				for k in pairs(v) do
+					c = c + 1
 				end
 			end
 			if c >= vaultThresholds[3][1] then
@@ -561,7 +561,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.958
+local version = 1.959
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -669,7 +669,7 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	if iKeystonesDB[player] then
 		iKeystonesDB[player].canLoot = C_WeeklyRewards.HasAvailableRewards()
 	end
-	local affstring = _sformat("%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
+	local affstring = _sformat("2%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
 	if iKeystonesConfig.affstring ~= affstring then
 		iKeystonesConfig.affstring = affstring
 		iKS:weeklyReset()
