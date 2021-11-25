@@ -25,6 +25,7 @@ addon:RegisterEvent('CHAT_MSG_PARTY_LEADER')
 addon:RegisterEvent('CHALLENGE_MODE_COMPLETED')
 addon:RegisterEvent('ENCOUNTER_END')
 addon:RegisterEvent('WEEKLY_REWARDS_HIDE')
+addon:RegisterEvent('ITEM_CHANGED')
 
 local iKS = {}
 iKS.currentMax = 0
@@ -146,18 +147,18 @@ do
 		STORMING = 124,
 	}
 iKS.affixCycles = {
-	{affixIDS.FORTIFIED, affixIDS.BURSTING, affixIDS.VOLCANIC}, -- Confirmed
-	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.STORMING}, -- Confirmed
-	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.GRIEVOUS}, -- Confirmed
-	{affixIDS.TYRANNICAL, affixIDS.INSPIRING, affixIDS.NECROTIC}, -- Confirmed
-	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.QUAKING}, -- Confirmed
-	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.EXPLOSIVE}, -- Confirmed
-	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.VOLCANIC}, -- Confirmed
-	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.NECROTIC}, -- Confirmed
-	{affixIDS.FORTIFIED, affixIDS.INSPIRING, affixIDS.STORMING}, -- Confirmed
-	{affixIDS.TYRANNICAL, affixIDS.BURSTING, affixIDS.EXPLOSIVE}, -- Confirmed
-	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.GRIEVOUS}, -- Confirmed
-	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.QUAKING}, -- Confirmed
+	{affixIDS.FORTIFIED, affixIDS.BURSTING, affixIDS.STORMING},
+	{affixIDS.TYRANNICAL, affixIDS.RAGING, affixIDS.VOLCANIC},
+	{affixIDS.FORTIFIED, affixIDS.INSPIRING, affixIDS.GRIEVOUS},
+	{affixIDS.TYRANNICAL, affixIDS.SPITEFUL, affixIDS.NECROTIC},
+	{affixIDS.FORTIFIED, affixIDS.BOLSTERING, affixIDS.QUAKING},
+	{affixIDS.TYRANNICAL,affixIDS.SANGUINE, affixIDS.STORMING},
+	{affixIDS.FORTIFIED, affixIDS.RAGING, affixIDS.EXPLOSIVE},
+	{affixIDS.TYRANNICAL, affixIDS.BURSTING, affixIDS.VOLCANIC},
+	{affixIDS.FORTIFIED, affixIDS.SPITEFUL, affixIDS.GRIEVOUS},
+	{affixIDS.TYRANNICAL, affixIDS.INSPIRING, affixIDS.QUAKING},
+	{affixIDS.FORTIFIED, affixIDS.SANGUINE, affixIDS.NECROTIC},
+	{affixIDS.TYRANNICAL, affixIDS.BOLSTERING, affixIDS.EXPLOSIVE},
 }
 end
 --C_MythicPlus.GetLastWeeklyBestInformation();
@@ -229,6 +230,8 @@ function iKS:weeklyReset()
 	iKS:scanCharacterMaps()
 end
 do -- Torghast
+	--64347 conduit?
+	--[[
 	local questIDs = {
 		{58198, 58199, 58200, 58201, 58202, 58203, 61975, 61976, 63880, 63881, 63882, 63883}, -- Coldhearth Insignia
 		{58186, 58187, 58188, 58189, 58190, 58191, 61971, 61972, 63872, 63873, 63874, 63875}, -- Fracture Chambers
@@ -237,8 +240,12 @@ do -- Torghast
 		{59337, 61101, 61131, 61132, 61133, 61134, 61979, 61980, 63888, 63889, 63890, 63891}, -- Upper Reaches
 		{59328, 59329, 59330, 59331, 59332, 59333, 61969, 61970, 63868, 63869, 63870, 63871}, -- Skoldus Hall
 	}
+	--]]
+	-- Only check if conduit weekly quest is done
 	function iKS:checkTorghast()
 		if not iKS:createPlayer() then return end
+		iKeystonesDB[player].torghast = IsQuestFlaggedCompleted(64347) and 1 or 0
+		--[[
 		for zone, questIDs in pairs(questIDs) do
 			local count = 0
 			for _, id in pairs(questIDs) do
@@ -250,6 +257,7 @@ do -- Torghast
 				iKeystonesDB[player].torghast[zone] = count
 			end
 		end
+		--]]
 	end
 end
 function iKS:createPlayer(login)
@@ -268,7 +276,7 @@ function iKS:createPlayer(login)
 				canLoot = C_WeeklyRewards.HasAvailableRewards(),
 				faction = UnitFactionGroup('player'),
 				PvP = {progress = 0, level = 0},
-				torghast = {},
+				torghast = 0,
 				runHistory = {},
 			}
 			iKS:scanCharacterMaps(true)
@@ -561,7 +569,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.960
+local version = 1.961
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -615,6 +623,11 @@ function addon:ADDON_LOADED(addonName)
 					if not data.runHistory then
 						data.runHistory = {}
 					end
+				end
+			end
+			if iKeystonesConfig.version and iKeystonesConfig.version < 1.961 then
+				for guid,data in pairs(iKeystonesDB) do
+						data.torghast = 0
 				end
 			end
 			iKeystonesConfig.version = version
@@ -702,6 +715,17 @@ function addon:CHALLENGE_MODE_COMPLETED()
 end
 function addon:BAG_UPDATE()
 	iKS:scanInventory()
+end
+do
+	local _changeTimer
+	function addon:ITEM_CHANGED(prevHyperlink, newHyperlink) -- cba to parse it from link, check after a delay if key was changed
+		if _changeTimer then
+			_changeTimer:Cancel()
+		end
+		_changeTimer = C_Timer.NewTimer(2, function()
+			iKS:scanInventory()
+		end)
+	end
 end
 function addon:ITEM_PUSH(bag, id)
 	if id == 525134 then
@@ -1494,12 +1518,12 @@ function iKS:createMainWindow()
 		local pvpData, pvpTooltip = getStringForVault(v, "pvp")
 		f.pvp.data = dungeonTooltip
 		f.pvp.text:SetText(pvpData)
-
+		--[[
 		local torghast
 		do
 			local count = 0
 			for _,_v in spairs(v.torghast) do
-				if _v >= 12 then
+				if _v == 12 then
 					if not torghast then
 						torghast = _sformat("|cff00ff00%s|r", _v)
 					else
@@ -1520,7 +1544,8 @@ function iKS:createMainWindow()
 				torghast = _sformat("%s/-", torghast)
 			end
 		end
-		f.torghast.text:SetText(torghast or "")
+		--]]
+		f.torghast.text:SetText(v.torghast == 1 and "|cff00ff00Conduit|r" or "-")
 		reColor(f, v.faction)
 	end
 	for j = i+1, #iKS.frames do

@@ -1,8 +1,8 @@
-## Interface: 90100
+## Interface: 90105
 ## Title: iKeystones
 ## Notes: Tracks your keystones
 ## Author: Ironi
-## Version: 1.960
+## Version: 1.961
 ## DefaultState: enabled
 
 ## SavedVariables: iKeystonesDB, iKeystonesConfig
