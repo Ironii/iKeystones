@@ -5,6 +5,7 @@ local vaultThresholds = {
 	{1250,2500,6250},
 	{3,6,9},
 }
+local isLegitServer = true
 local addon = CreateFrame('Frame');
 addon:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
@@ -196,6 +197,7 @@ local function spairs(t, order)
     end
 end
 function iKS:weeklyReset()
+
 	for guid,data in pairs(iKeystonesDB) do
 		if data.PvP.progress > vaultThresholds[2][1] then
 			data.canLoot = true
@@ -261,16 +263,12 @@ do -- Torghast
 	end
 end
 function iKS:createPlayer(login)
+	if not isLegitServer then return false end
 	if player and not iKeystonesDB[player] then
-		local realm = GetRealmName()
-		local _r = realm:lower()
-		if _r:match("mythic dungeons") or _r:match("arena champions") then
-			return false
-		end
 		if UnitLevel('player') >= currentMaxLevel and not iKeystonesConfig.ignoreList[player] then
 			iKeystonesDB[player] = {
 				name = UnitName('player'),
-				server = realm,
+				server = GetRealmName(),
 				class = select(2, UnitClass('player')),
 				key = {},
 				canLoot = C_WeeklyRewards.HasAvailableRewards(),
@@ -554,6 +552,10 @@ function addon:PLAYER_LOGIN()
 	C_MythicPlus.RequestCurrentAffixes()
 	C_MythicPlus.RequestMapInfo()
   C_MythicPlus.RequestRewards()
+	local realm = GetRealmName()
+	if realm:lower():match("mythic dungeons") or realm:lower():match("arena champions") then
+		isLegitServer = false
+	end
 	GarrisonLandingPageMinimapButton:HookScript('OnEnter', function()
 		if IsShiftKeyDown() then
 			iKS:createMainWindow()
@@ -569,7 +571,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.961
+local version = 1.962
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -682,6 +684,7 @@ function addon:MYTHIC_PLUS_CURRENT_AFFIX_UPDATE()
 	if iKeystonesDB[player] then
 		iKeystonesDB[player].canLoot = C_WeeklyRewards.HasAvailableRewards()
 	end
+	if not isLegitServer then return end
 	local affstring = _sformat("2%d%d%d%d", iKS.currentAffixes[1], iKS.currentAffixes[2],iKS.currentAffixes[3],iKS.currentAffixes[4])
 	if iKeystonesConfig.affstring ~= affstring then
 		iKeystonesConfig.affstring = affstring
