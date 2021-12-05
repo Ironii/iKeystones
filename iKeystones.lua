@@ -5,7 +5,7 @@ local vaultThresholds = {
 	{1250,2500,6250},
 	{3,6,9},
 }
-local isLegitServer = true
+local isLegitServer = false
 local addon = CreateFrame('Frame');
 addon:SetScript("OnEvent", function(self, event, ...)
 	self[event](self, ...)
@@ -553,8 +553,8 @@ function addon:PLAYER_LOGIN()
 	C_MythicPlus.RequestMapInfo()
   C_MythicPlus.RequestRewards()
 	local realm = GetRealmName()
-	if realm:lower():match("mythic dungeons") or realm:lower():match("arena champions") then
-		isLegitServer = false
+	if not (realm:lower():match("mythic dungeons") or realm:lower():match("arena champions")) then
+		isLegitServer = true
 	end
 	GarrisonLandingPageMinimapButton:HookScript('OnEnter', function()
 		if IsShiftKeyDown() then
@@ -571,7 +571,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.962
+local version = 1.963
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -630,6 +630,18 @@ function addon:ADDON_LOADED(addonName)
 			if iKeystonesConfig.version and iKeystonesConfig.version < 1.961 then
 				for guid,data in pairs(iKeystonesDB) do
 						data.torghast = 0
+				end
+			end
+			if iKeystonesConfig.version and iKeystonesConfig.version < 1.963 then -- ya fucked up dungeon servers again somehow
+				local guidsToDelete = {}
+				for guid,data in pairs(iKeystonesDB) do
+					local server = data.server:lower()
+					if data.server:lower():match("mythic dungeons") or data.server:lower():match("arena champions") then
+						guidsToDelete[guid] = true
+					end
+				end
+				for k,v in pairs(guidsToDelete) do
+					iKeystonesDB[k] = nil
 				end
 			end
 			iKeystonesConfig.version = version
