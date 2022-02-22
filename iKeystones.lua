@@ -93,6 +93,8 @@ iKS.keystonesToMapIDs = {
 	[380] = 2284, -- Sanguine Depths
 	[381] = 2285, -- Spires of Ascension
 	[382] = 2293, -- Theater of Pain
+	[391] = 2441, -- Tazavesh: Streets of Wonder
+	[392] = 2441, -- Tazavesh: So'leah's Gambit
 }
 
 iKS.IsleQuests = {
@@ -127,6 +129,7 @@ local sortedAffixes = {
 	[120] = 4, -- Awekened, BFA S4
 	[121] = 4, -- Prideful, SL S1
 	[128] = 4, -- Tormented SL S2
+	[130] = 4, -- Encrypted SL S3
 }
 do
 	local affixIDS = {
@@ -571,7 +574,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.963
+local version = 1.964
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -841,7 +844,6 @@ do
 		[2417] = true, -- Stone Legion Generals
 		[2402] = true, -- Sun King's Salvation
 		[2412] = true, -- The Council of Blood
-		--]]
 		[2423] = true, -- The Tarragrue
 		[2433] = true, -- The Eye of the Jailer
 		[2429] = true, -- The Nine
@@ -852,6 +854,18 @@ do
 		[2431] = true, -- Fatescribe Roh-Kalo
 		[2422] = true, -- Kel'Thuzad
 		[2435] = true, -- Sylvanas Windrunner
+		--]]
+		[2512] = true, -- Vigilant Guardian
+		[2542] = true, -- Skolex, the Insatiable Ravener
+		[2553] = true, -- Artificer Xymox
+		[2540] = true, -- Dausegne, the Fallen Oracle
+		[2544] = true, -- Prototype Pantheon
+		[2539] = true, -- Lihuvim, Principal Architect
+		[2529] = true, -- Halondrus the Reclaimer
+		[2546] = true, -- Anduin Wrynn
+		[2549] = true, -- Lord of Dread
+		[2549] = true, -- Rygelon
+		[2537] = true, -- The Jailer
 	}
 	function addon:ENCOUNTER_END(encounterID, encounterName, difficultyID, raidSize, kill)
 		if not iKS:createPlayer() then return end
