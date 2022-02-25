@@ -1,9 +1,9 @@
 --upvalues
 local _sformat, GetQuestObjectiveInfo, IsQuestFlaggedCompleted, _sgsub, _sgmatch, _smatch, _slower, SendChatMessage, _SendAddonMessage = string.format, GetQuestObjectiveInfo, C_QuestLog.IsQuestFlaggedCompleted, string.gsub, string.gmatch, string.match, string.lower, SendChatMessage, C_ChatInfo.SendAddonMessage
 local vaultThresholds = {
-	{1,4,10},
-	{1250,2500,6250},
-	{3,6,9},
+	{1,4,8},
+	{1250,2500,5500},
+	{2,5,8},
 }
 local isLegitServer = false
 local addon = CreateFrame('Frame');
@@ -574,7 +574,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.964
+local version = 1.965
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
