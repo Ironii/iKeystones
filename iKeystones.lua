@@ -574,7 +574,7 @@ function addon:PLAYER_LOGIN()
 	end)
 	iKS:scanCharacterMaps()
 end
-local version = 1.965
+local version = 1.966
 function addon:ADDON_LOADED(addonName)
 	if addonName == 'iKeystones' then
 		iKeystonesDB = iKeystonesDB or {}
@@ -1221,33 +1221,37 @@ local treasures = {
 local tempILvLstuff = {
 	{ -- M+
 		0,
-		226, -- 2
-		226, -- 3
-		226, -- 4
-		229, -- 5
-		229, -- 6
-		233, -- 7
-		236, -- 8
-		236, -- 9
-		239, -- 10
-		242, -- 11
-		246, -- 12
-		246, -- 13
-		249, -- 14
-		252, -- 15
+		252, -- 2
+		252, -- 3
+		252, -- 4
+		255, -- 5
+		255, -- 6
+		259, -- 7
+		262, -- 8
+		262, -- 9
+		265, -- 10
+		267, -- 11
+		268, -- 12
+		272, -- 13
+		275, -- 14
+		278, -- 15
 	},
 	{ -- PvP
-		[0] = 220, -- Unranked
-		[1] = 226, -- 1400-1599
-		[2] = 233, -- 1600-1799
-		[3] = 240, -- 1800-2099
-		[4] = 246, -- 2100+
+		[0] = 249, -- Unranked
+		[1] = 252, -- 1000-1199 (Combatant I)
+		[2] = 259, -- 1400-1599 (Challenger I)
+		[3] = 265, -- 1800-1945 (Rival I)
+		[4] = 272, -- 2100-2400 (Duelist)
+		[5] = 275, -- 2400+ (Elite)
+		[6] = 255, -- 1200-1399 (Combatant II)
+		[7] = 262, -- 1600-1799 (Challenger II)
+		[8] = 268, -- 1950-2099 (Rival II)
 	},
 	{ -- Raid
-		lfr = 213,
-		normal = 226,
-		heroic = 239,
-		mythic = 252,
+		lfr = 239,
+		normal = 252,
+		heroic = 265,
+		mythic = 278,
 	},
 }
 local function getItemLevelForWeekly(id, vaultType)
@@ -1255,9 +1259,9 @@ local function getItemLevelForWeekly(id, vaultType)
 	if vaultType == 1 and id >= 15 then -- m+
 		id = 15
 	elseif vaultType == 2 then
-		if id > 4 then id = 4 end
+		--if id > 4 then id = 4 end
 	end
-	return tempILvLstuff[vaultType][id], 252
+	return tempILvLstuff[vaultType][id], vaultType == 2 and 275 or 278
 	--[[ this isn't reliable right now, use hard coded shit
 	if vaultType == 1 then
 		return C_MythicPlus.GetRewardLevelFromKeystoneLevel(id), 226
