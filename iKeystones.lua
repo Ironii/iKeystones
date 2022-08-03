@@ -130,6 +130,7 @@ local sortedAffixes = {
 	[121] = 4, -- Prideful, SL S1
 	[128] = 4, -- Tormented SL S2
 	[130] = 4, -- Encrypted SL S3
+	[131] = 4, -- Shrouded SL S4
 }
 do
 	local affixIDS = {
@@ -1059,7 +1060,7 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_INSTANCE_LEADER", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_PARTY", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_PARTY_LEADER", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_RAID", chatFiltering)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_RAID", chatFiltering)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_RAID_LEADER", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", chatFiltering)
 ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER", chatFiltering)
